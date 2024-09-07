@@ -613,10 +613,368 @@ resource "aws_dynamodb_table" "hu" {
     billing_mode = "PEY_PER_REQUEST"
     attribute = {
         name = "qwe"
-        model = "S"
+        type = "S"
     }
 }
 ```
 
-## REMOTE STATE
+### EC2
+```
+# main.tf
+resource "aws_instance" "my_ec2" {
+    ami = "AMI"
+    instance_type = "t2.micro"
 
+    tags = {
+        Name = "huhu"
+    }
+
+    user_data = <<-EOF
+                #!/bin/bash
+                sudo apt update
+                sudo apt install nginx -y
+                sudo apt install ansible
+                EOF
+
+    provisioner "remote-exec" { # EXECUTE COMMANDS IN REMOTE SERVER
+        inline = [
+                    "sudo apt update"
+                    "sudo apt install htop"
+                    "sudo apt install nginx"
+                ]
+    }
+    connection { # PROVIDE CONNECTION PARAMETERS FOR PROVISIONER REMOTE-EXEC
+        type = "ssh"
+        host = "self.public_ip"
+        user = "ubuntu"
+        private_key = file("path/to/private/key/on/local/machine")
+    }
+
+    provisioner "local-exec" { # EXECUTE COMMAND ON LOCAL MACHINE THAT RUNS TERRAFORM BINARY
+        # HERE WE WILL STORE THE PUBLIC IP IN A TEXT FILE
+        command = "echo ${aws_instance.myh_ec2.public_ip} >> /path/to/store.txt"
+    }
+
+    provisioner "local-exec" {
+        # HERE WE WILL EXECUTE THIS PROVISIONER ON A CONDITION
+        when = destroy
+        on_failure = continue
+        command = "echo ${aws_instance.myh_ec2.public_ip} destroyed > /path/to/store.txt"
+    }
+
+    key_name = aws_key_pair.web.id
+    vpc_security_group_ids = [aws_security_group.ssh-access.id]
+
+}
+
+resource "aws_key_pair" "web" {
+    public_key = file("path/to/pub/key/on/local/machine.pub")
+}
+
+resource "aws_security_group" "ssh-access" {
+    name = "ssh-access"
+    description = "huhu"
+    ingress = {
+        from_port = 22
+        to_port = 22
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+}
+
+output publicip {
+    value = aws_instance.webserver.public_ip
+}
+
+# provider.tf
+provider "aws" {
+    region = "us-west-1"
+}
+```
+
+
+## REMOTE STATE
+* Statelocking to prevent the corruption of state file
+### REMOTE BACKEND WITH S3 AND DYNAMODB
+* S3 for storing the state file and dynamodb for locking the state
+```
+# terraform.tf
+terraform {
+    backend "s3" { # TO USE S3 AS BACKEND
+        bucket = "BUCKET_NAME"
+        key = "PATH_TO_STATE_FILE_IN_S3_BUCKET"
+        region = "us-west-1"
+        dynamodb = "state-locking" # THE TABLE MUST HAVE A PRIMARY KAY AS LockID
+    }
+}
+
+# main.tf
+CREATE RESOURCES AS USUAL
+resource "aws_dynamodb_table" "state_locking" {
+    name = "state-locking"
+    hash_key = "LockID"
+    billing_mode = "PEY_PER_REQUEST"
+    attribute = {
+        name = "LockID"
+        type = "S"
+    }
+}
+```
+### STATE COMMANDS
+* `terraform state list` list all the resources
+* `terraform state show RESOURCE` print info of resource, `RESOURCE` taken by `list` command
+* `terraform state mv RESOURCE_TYPE.RESOURCE_NAME RESOURCE_TYPE.NEW_RESOURCE_NAME` renames the resource
+* `terraform state pull` to see the remote state file
+* `terraform state rm RESOURCE_TYPE.RESOURCE_NAME` removes a resource, but remove it from the config file manually too
+
+## TAINT
+* Sometimes terraform apply fails due to wrong path or command in provisioner sub block or attribute
+* Tainted resources are entirely recreated
+* Terraform marks those resources as tainted and then they are re created when next apply command is run
+* When we have to make change to a resource we may recreate a resource by running terraform apply command but the better way is to taint the resource to upgrade or make required changes using `terraform taint RESOURCE_TYPE.RESOURCE_NAME`
+* To untain the resource run `terraform untaint RESOURCE_TYPE.RESOURCE_NAME`
+
+## DEBUG
+* Terraform have a lot of debug levels: `INFO`, `WARNING`, `ERROR`, `DEBUG` and `TRACE`
+* To use debugging use: `export TF_LOG=DEBUG_LEVEL`
+
+## IMPORT
+* Import externally managed or created resources
+* terraform import RESOURCE_TYPE.RESOURCE_NAME RESOURCE_ID_ON_CLOUD_CONSOLE
+    - example: `terraform import aws_instance.web i-12321434242344`
+* This will give an error and also it will give a code, paste that in the `main.tf`
+```
+resource "aws_instance" "web" {
+    # (resource arguments)
+}
+```
+* Then again run the same command above, this time , no error reported and also theresource is imported
+* Now we can examine `terraform.tfstate` and then change the resource block in the `main.tf`
+* Now the resource block is in control of terraform
+
+## MODULE
+* A configuration directory containing .tf files is a module in itself
+```
+root_proj_dir
+    dir1
+        main.tf
+        variables.tf
+    dir2
+        main.tf
+        variables.tf
+```
+* If we use the following lines in following files
+```
+# root_proj_dir/dir2/main.tf
+module "huhu" {
+    source = "../dir1" # path/to/another/config/directory
+
+}
+
+# root_proj_dir/dir1/main.tf
+resource "aws_instance" "webserver" {
+    ami = var.ami
+    instance_type = "t2.micro"
+    key_name = var.key
+}
+
+# root_proj_dir/dir1/variables.tf
+variable ami {
+    type = string
+    default = "ami-3453452342"
+}
+```
+* `dir2` becomes the root module and `dir1` becomes the child module or imported module
+
+* Another example:
+```
+root_proj_dir
+    modules
+        payroll_app
+            app_server.tf
+            s3_bucket.tf
+            dynamodb_table.tf
+            variables.tf
+    us_server
+        main.tf 
+    uk_server
+        main.tf
+
+# root_proj_dir/modules/payroll_app/app_server.tf
+resource "aws_instance" "app_server" {
+    ami = var.ami
+    instance_type = "t2.medium"
+    tags = {
+        Name = "${var.app_region}-app-server"
+    }
+    depends_on = [
+                    aws_dynamodb_table.payroll_db
+                    aws_s3_bucket.payroll_data
+                ]
+
+# root_proj_dir/modules/payroll_app/s3_bucket.tf
+resource "aws_s3_bucket" "payroll_data" {
+    bucket = "${var.app_region}-${var.bucket}"
+}
+
+# root_proj_dir/modules/payroll_app/dynamodb_table.tf
+resource "aws_dynamodb_table" "payroll_db" {
+    name = "user_data"
+    billing_mode = "PAY_PER_REQUEST"
+    hash_key = "EmployeeID"
+
+    attributes = {
+        name = "EmployeeID"
+        type = "N"
+    }
+}
+
+# root_proj_dir/modules/payroll_app/variables.tf
+variable "app_region" {
+    type = string
+}
+variable "bucket" {
+    default = "flexit-payroll-alpha-22001c"
+}
+variable "ami" {
+    type = string
+}
+
+# root_proj_dir/us_server/main.tf
+module "us_payroll" {
+    source = "../modules/payroll_app"
+    app_region = "us-east-1" # PASSING VARIABLES TO MODULE VARIABLES
+    ami = "ami-12314234243"
+}
+
+resource "aws_instance" "showpiece_ec2" {
+    ami = "ami-123131131231"
+    instance_type = "t2.micro"
+    depends_on = [
+                    module.us_payroll.aws_instance.app_server
+                ]
+}
+
+# root_proj_dir/us_server/provider.tf
+provider "aws" {
+    region = "us-east-1"
+}
+```
+
+### MODULES FROM TERRAFORM REGISTRY
+* Search terraform registry for usage and availability
+* Install terraform module using `terraform get`, but make sure that it has been used by the configuration files
+* Using the `terraform-aws-modules/security-group/aws/modules/ssh`
+```
+# main.tf
+module "sec_grp_ssh" {
+    source = "terraform-aws-modules/security-group/aws/modules/ssh"
+    version = "3.16.0"
+    vpc_id = "vpc-1231243"
+    ingress_cidr_blocks = [
+                            "10.10.0.0/16"
+                        ]
+    name = "ssh-access"
+}
+```
+
+## TERRAFORM FUNCTIONS
+* We have already seen some functions like `file('PATH')` and `toset(var.VARIABLE_NAME)` and `len(var.VARIABLE_NAME)`
+### NUMERIC FUNCTIONS
+* `max(1,2,3,4)` and `min(1,2,3,4)`
+* To use sets or lists in min and max functions we must do it like this
+```
+variable "huh" {
+    type = set(number)
+    default = [1,2,3,4]
+}
+
+# TERRAFORM CONSOLE
+> max(var.huh...) # THESE THREE DODS ARE EXPANSION SYNTAX
+```
+* `ceil(10.12)` and `floor(1.33)`
+### STRING FUNCTIONS
+* `split(',', 'uhhu,uhu,df,vdh,df,df')`
+* `upper('skjdhvljhd')`
+* `lower('JHBHBvihvibDFF')`
+* `substr('skjdbbvjbsjlv', START_OFFSET, TOTAL_CHARACTERS)`
+* `join(',', ['sdfsd','hfghf','wrew','bvc','yi'])`
+### COLLECTION FUNCTIONS
+* `len(var.VARIABLE_NAME)`
+* `index(var.VARIABLE_NAME, TO_FIND)`
+* `element(var.VARIABLE_NAME, INDEX)`
+* `contains(var.VARIABLE_NAME, TO_FIND)`
+### MAP FUNCTIONS
+* `keys(var.VARIABLE_NAME)`
+* `values(var.VARIABLE_NAME)`
+* `lookup(var.VARIABLE_NAME, KEY)`
+* `lookup(var.VARIABLE_NAME, KEY, DEFAULT_VALUE)`
+### CONDITIONAL STATEMENTS
+* Almost same as python but some anomalies are there
+* `&&` and, `||` or, `!` not
+* `8 == '8'` gives true
+#### IF CONDITIONS
+* `condition ? true_val : false_val`
+```
+# main.tf
+resource "random_password" "pass_gen" {
+    length = var.length < 8 ? 8 : var.length
+}
+output password {
+    value = random_password.pass_gen.result
+}
+
+# variables.tf
+variable length {
+    type = number
+    desription = "huh"
+}
+
+$ > terraform apply --var=length=5
+```
+
+## WORKSPACES
+* Allow to use configurration files within a directory to be reused multiple times for different purposes
+```
+root_proj_dir
+    main.tf
+    variables.tf
+```
+* To init or create a new workspace we use `terraform workspce new WORKSPACE_NAME`
+* To list existing workspaces `terraform workspace list`
+* To switch to a workspae `terraform workspace select WORKSPACE_NAME`
+```
+# variables.tf
+variable region {
+    default = "us-east-1"
+}
+variable instance_type {
+    default = "t2.micro"
+}
+variable ami {
+    type = map
+    default = {
+        "p1" = "ami-12324"
+        "p2" = "ami-45656"
+    }
+}
+
+# main.tf
+resource "aws_instance" "huhu" {
+    ami = lookup(var.ami, terraform.workspace)
+    instance_type = var.instance_type
+    tags = {
+        name = terraform.workspace
+    }
+}
+
+$ > terraform apply
+```
+* Now here is a catch, we do not hacce any terraform.tfstate file in the main directory, now we have a new subdirectory structure where all the state files are stored named `terraform.tfstate.d`
+```
+terraform.tfstate.d
+    WORKSPACE1
+        terraform.tfstate
+    WORKSPACE2
+        terraform.tfstate
+``` 
