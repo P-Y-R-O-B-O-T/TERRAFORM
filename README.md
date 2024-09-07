@@ -32,14 +32,14 @@
     - Terraform can import other resources inside it if any were created manually
 
 #### HCL BASICS
-```
+```tcl
 <block> <resource_type> <resource_name> <parameters> {
     key1 = val1
     key2 = val2
 }
 ```
 * A block contains information about the infrastructure platform and resources within the platform that we want to create
-```
+```tcl
 EXAMPLE: CREATING A LOCAL FILE
 
 resource "local_file" "pet" {
@@ -52,7 +52,7 @@ resource "local_sensitive_file" "secret" { # store sensitive data in a file and 
     content = "HUH"
 }
 ```
-```
+```tcl
 EXAMPLE: CREATING A EC2 INSTANCE
 
 resource "aws_instance" "webserver" {
@@ -60,7 +60,7 @@ resource "aws_instance" "webserver" {
     instance_type = "t2.micro"
 }
 ```
-```
+```tcl
 EAMPLE: CREATING AWS S3 BUCKET
 
 resource "aws_s3_bucket" "data" {
@@ -85,7 +85,7 @@ resource "aws_s3_bucket" "data" {
 * Providers are downloaded as hidden directory in the configuration directory
 * Random provider is also important, it is a logical provider **See more in official docs**
 * If we change config and use a new provider that is not installed, the `terraform apply` command won't work as the provider is not installed, we first need to install it using `terraform init`
-```
+```tcl
 resource "random_pet" "pet_name_obj" {
     length = 1
     prefix = "Mr"
@@ -100,7 +100,7 @@ resource "random_pet" "pet_name_obj" {
 ### VARIABLES FILE
 * Store dynamic variables for configurations
 * Variable block has 3 properties, available types are : `bool`, `string`, `number`, `list`, `map`, `object`, `tuple` and `any` 
-```
+```tcl
 # variables.tf
 variable "NAME" {
     default = 2
@@ -171,7 +171,7 @@ resource local_file "qwe" {
     content = var.zzzzzzzz["key1"]
 }
 ```
-```
+```tcl
 # variables.tf
 variable "filename" {
     default = "/root/pets.txt"
@@ -207,7 +207,7 @@ resource "random_pet" "my-pet" {
 * We can also leav a variable like below
     - In this case we can export variables in shell `export TF_VAR_VARNAME="VALUE"` and then run the apply or plan command
     - Or we can give variables in run time `terraform apply -var "var1=val1" -var "var2=val2"`
-```
+```tcl
 variable "VARIABLE_NAME" {
 
 }
@@ -215,7 +215,7 @@ variable "VARIABLE_NAME" {
 
 #### .tfvars FILE
 * We can define variables in a `.tfvars` file in following format
-```
+```tcl
 var1 = "val1"
 var2 = "2"
 seperator = "."
@@ -225,7 +225,7 @@ seperator = "."
 * **Variable Precedence:** `main.tf > -var or -var-file > *.auto.tfvars > terraform.tfvars > environment variables`
 
 #### USING OUTPUT OF ONE VARIABLE IN ANOTHER
-```
+```tcl
 resource "local_file" "zzz" {
     filename = var.filename
     content = "HUHU ${random_pet.zzzz.id}"
