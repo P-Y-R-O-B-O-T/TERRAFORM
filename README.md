@@ -33,9 +33,8 @@
 
 ## HCL BASICS
 ```tcl
-<block> <resource_type> <resource_name> <parameters> {
-    key1 = val1
-    key2 = val2
+BLOCK_TYPE "RESOURCE_TYPE" "RESOURCE_NAME" {
+    PARAMETERS
 }
 ```
 * A block contains information about the infrastructure platform and resources within the platform that we want to create
