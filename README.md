@@ -1,14 +1,14 @@
 # TERRAFORM
 * Infrastructure as code is the process of managing and provisioning computer data center resources through machine-readable definition files, rather than physical hardware configuration or interactive configuration tools.
 
-#### PROBLEMS WITH TRADITIONAL IT INFRASTRUCTURE DEPLOYMENTS
+## PROBLEMS WITH TRADITIONAL IT INFRASTRUCTURE DEPLOYMENTS
 * Slow deployments
 * Expensive
 * Limited automation
 * Human error
 * Inconsistencies
 
-#### TYPES OF IAC TOOLS
+## TYPES OF IAC TOOLS
 * Configuration managenent: Ansible, Puppet, Salt Stack
     - Install and manage software
     - Maintains standard structure
@@ -24,7 +24,7 @@
     - Servers, databases, Networks, Components etc
     - Multiple providers
 
-#### WHY TERRAFORM ?
+## WHY TERRAFORM ?
 * Can handle multiple cloud platforms, using providers
 * HCL - declarative language (.tf)
 * Resource lifecycle managenent (provisioning, configuring, decommissioning)
