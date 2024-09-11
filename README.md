@@ -435,14 +435,14 @@ output "OUTPUT_NAME" {
 > ### MUTABLE VS IMMUTABLE INFRASTRUCTURE
 > * Terraform uses immutable way of managing resources
 
-### RESOURCE TARGETING
+## RESOURCE TARGETING
 * There are times when there are changes in config file but only few are needed to implemented at the momment, to solve that issue, we have this feature
 * This feature should be rarely used in case of urgency
 ```bash
 terraform apply -target RESOURCE_TYPE.RESOURCE_NAME
 ```
 
-### LIFECYCLE
+## LIFECYCLE
 * Normally resourecs are destroyed before creating but this can be altered by using `create_before_destroy` parameter for resource in the lifecycle parameter
 * If we do not want any resource to never get destroyed it can be prevented using `prevent_destroy`, usable for databases, note that `terraform destroy` command will destroy the resource
 * When there is no need to consider the changes in the tags attribute we must `ignore_changes` and similarly in any other attributes like ami or subnet or file content and many more or use all to ignore all attributes
@@ -466,7 +466,7 @@ resource "RESOURCE_TYPE" "RESOURCE_NAME" {
 }
 ```
 
-### DATASOURCES
+## DATASOURCES
 * To use data from outside world in terraform
 * See terraform registry for more details on the attributes for the data block
 ```hcl
@@ -480,7 +480,7 @@ data "aws_key_pair" "KEY_PAIR_RESOURCE_NAME" {
 * A resource is used to create infrastructure but a data source is created to read infrastructure
 
 > [!TIP]
-> #### EXAMPLE
+> ### EXAMPLE
 > * For example an aws keypair exist in AWS and it is needed to create a new resource
 > ```tcl
 > data "aws_key_pair" "KEY_NAME" {
@@ -495,24 +495,13 @@ data "aws_key_pair" "KEY_PAIR_RESOURCE_NAME" {
 > ```
 
 
-### META ARGUMENTS
+## META ARGUMENTS
 * We have altready seen two meta arguments `depends_on` and `lifecycle`
 * Now for the loop and iteration types `count` and `for each`
 
-#### COUNT
+### COUNT
+* Count issues the number of instances to be created for that resource block
 * Creates multiple resources and now the resource block is not considered as a single resource but a list of resources that can be accessed using the `[]` method to assess the elements
-```tcl
-# main.tf
-resource "RESOURCE_TYPE" "RESOURCE_NAME" {
-    PARAMETER = var.VARIABLE_NAME[count.index]
-    count = 3
-}
-
-# variables.tf
-variable "VARIABLE_NAME" {
-    default = "VALUE"
-}
-```
 ```tcl
 # main.tf
 resource "RESOURCE_NAME" "RESOURCE_NAME" {
@@ -533,8 +522,8 @@ variable "VARIABLE_NAME" {
 > [!CAUTION]
 > * When there is a need to change the length of the variable or the number of files in the list, all the resources gets removed and changed, to solve this issue, we use the `for_each` argument
 
-#### FOR EACH
-* It only works with map and set
+### FOR EACH
+* It only works with `map` and `set`
 * The resources are created and seen as a map and not a list
 ```tcl
 # main.tf
@@ -553,6 +542,308 @@ variable "VARIABLE_NAME" {
     ]
 }
 ```
+
+> [!NOTE]
+> * When we remove a resource from the set or map, say R1, only R1 is destroyed, none is recreated
+
+
+## PROVISIONERS
+* Provides features to run tasks and commands on remote resources and locally on the machine
+
+> [!TIP]
+> * Try avoiding provisioners and use native solutions provided by cloud platforms like `aws user data`
+
+### REMOTE EXEC
+* Run tasks on remote resource after the resource is deployed
+* All these commands need connection to be established, in our case it is ssh, so we use the connection block
+```tcl
+resource "aws_instance" "RESOURCE_NAME" {
+    ami = "AMI"
+    instance_type = "INSTANCE_TYPE"
+    provisioner "remote-exec" {
+        inline = [
+            "sudo apt update",
+            "sudo apt install nginx -y",
+            "sudo systemctl enable nginx",
+            "sudo systemctl start nginx"
+        ]
+    }
+    connection {
+        type = "ssh"
+        host = self.public_ip
+        user = "ubuntu"
+        private_key = file("PATH_TO_PRIV_KEY")
+    }
+    key_name = aws_key_pair.KEY_NAME.key_name
+    vpc_security_group_ids = [ aws_security_group.ssh-access.id ]
+}
+```
+
+### LOCAL EXEC
+* Run tasks on local machine
+* For example storing the public ip of instance
+* If the command fails, the terraform resource provisioning also fails
+```tcl
+resource "aws_instance" "RESOURCE_NAME" {
+    ...
+    provisioner "local-exec" {
+        command = "echo ${aws_instance.RESOURCE_NAME.public_ip} >> /tmp/ips.txt"
+    }
+    provisioner "local-exec" {
+        when = destroy
+        command = "echo ${aws_instance.RESOURCE_NAME.public_ip} destroyed >> /tmp/nips.txt"
+    }
+    provisioner "local-exec" { # CONTINUE EVEN IF PROVISIONER COMMAND FAILS
+        on_failure = continue
+        command = "echo 'asd'"
+    }
+}
+```
+
+## LOGGING and DEBUG
+* To enable logging, run `export TF_LOG=LOG_LEVEL` before terraform commands
+* Store all the logs in files `export TF_LOG_PATH=PATH`
+* There are few `LOG_LEVEL` in terraform:
+    - `INFO`
+    - `WARNING`
+    - `ERROR`
+    - `DEBUG`
+    - `TRACE`
+
+## MODULE
+* A configuration directory containing `.tf` files is a module in itself
+> [!IMPORTANT]
+> ### EXAMPLE
+> ```tcl
+> root_proj_dir
+>     modules
+>         payroll_app
+>             app_server.tf
+>             s3_bucket.tf
+>             dynamodb_table.tf
+>             variables.tf
+>     us_server
+>         main.tf 
+>     uk_server
+>         main.tf
+>
+> # root_proj_dir/modules/payroll_app/app_server.tf
+> resource "aws_instance" "app_server" {
+>     ami = var.ami
+>     instance_type = "t2.medium"
+>     tags = {
+>         Name = "${var.app_region}-app-server"
+>     }
+>     depends_on = [
+>                     aws_dynamodb_table.payroll_db
+>                     aws_s3_bucket.payroll_data
+>                 ]
+>
+> # root_proj_dir/modules/payroll_app/s3_bucket.tf
+> resource "aws_s3_bucket" "payroll_data" {
+>     bucket = "${var.app_region}-${var.bucket}"
+> }
+>
+> # root_proj_dir/modules/payroll_app/dynamodb_table.tf
+> resource "aws_dynamodb_table" "payroll_db" {
+>     name = "user_data"
+>     billing_mode = "PAY_PER_REQUEST"
+>     hash_key = "EmployeeID"
+>
+>     attributes = {
+>         name = "EmployeeID"
+>         type = "N"
+>     }
+> }
+>
+> # root_proj_dir/modules/payroll_app/variables.tf
+> variable "app_region" {
+>     type = string
+> }
+> variable "bucket" {
+>     default = "flexit-payroll-alpha-22001c"
+> }
+> variable "ami" {
+>     type = string
+> }
+>
+> # root_proj_dir/us_server/main.tf
+> module "us_payroll" {
+>     source = "../modules/payroll_app"
+>     app_region = "us-east-1" # PASSING VARIABLES TO MODULE VARIABLES
+>     ami = "ami-12314234243"
+> }
+>
+> resource "aws_instance" "showpiece_ec2" {
+>     ami = "ami-123131131231"
+>     instance_type = "t2.micro"
+>     depends_on = [
+>                     module.us_payroll.aws_instance.app_server
+>                 ]
+> }
+>
+> # root_proj_dir/us_server/provider.tf
+> provider "aws" {
+>     region = "us-east-1"
+> }
+> ```
+
+> [!TIP]
+> ### MODULES FROM TERRAFORM REGISTRY
+> * Search terraform registry for usage and availability
+> * Install terraform module using `terraform get`, but make sure that it has been used by the configuration files
+> * Using the `terraform-aws-modules/security-group/aws/modules/ssh`
+> ```tcl
+> # main.tf
+> module "sec_grp_ssh" {
+>     source = "terraform-aws-modules/security-group/aws/modules/ssh"
+>     version = "3.16.0"
+>     vpc_id = "vpc-1231243"
+>     ingress_cidr_blocks = [
+>                             "10.10.0.0/16"
+>                         ]
+>     name = "ssh-access"
+> }
+> ```
+
+## TERRAFORM FUNCTIONS
+* We have already seen some functions like `file('PATH')` and `toset(var.VARIABLE_NAME)` and `len(var.VARIABLE_NAME)`
+### NUMERIC FUNCTIONS
+* `max(1,2,3,4)` and `min(1,2,3,4)`
+* To use sets or lists in min and max functions we must do it like this
+```tcl
+variable "huh" {
+    type = set(number)
+    default = [1,2,3,4]
+}
+
+# TERRAFORM CONSOLE
+> max(var.huh...) # THESE THREE DODS ARE EXPANSION SYNTAX
+```
+* `ceil(10.12)` and `floor(1.33)`
+
+### STRING FUNCTIONS
+* `split(',', 'uhhu,uhu,df,vdh,df,df')`
+* `upper('skjdhvljhd')`
+* `lower('JHBHBvihvibDFF')`
+* `substr('skjdbbvjbsjlv', START_OFFSET, TOTAL_CHARACTERS)`
+* `join(',', ['sdfsd','hfghf','wrew','bvc','yi'])`
+
+### COLLECTION FUNCTIONS
+* `len(var.VARIABLE_NAME)`
+* `index(var.VARIABLE_NAME, TO_FIND)`
+* `element(var.VARIABLE_NAME, INDEX)`
+* `contains(var.VARIABLE_NAME, TO_FIND)`
+
+### MAP FUNCTIONS
+* `keys(var.VARIABLE_NAME)`
+* `values(var.VARIABLE_NAME)`
+* `lookup(var.VARIABLE_NAME, KEY)`
+* `lookup(var.VARIABLE_NAME, KEY, DEFAULT_VALUE)`
+
+### CONDITIONAL STATEMENTS
+* Almost same as python but some anomalies are there
+* **Comparison operators**: `==`, `!=`, `<`, `>`, `<=`, `>=`
+* **Logical operators**: `&&`, `||`, `!`
+
+#### IF CONDITIONS
+* `condition ? true_val : false_val`
+```tcl
+variable "length" {
+    type = string
+}
+resource "random_password" "password" {
+    length = var.length < 8 ? 8 : var.length
+}
+```
+
+## LOCAL VALUES
+* There are repetitive tasks like adding tage to resources, to eleminate such function, we use loacl values
+```tcl
+resource "RESOURCE_TYPE" "RESOURCE_NAME" {
+    count = locals.resource_count
+    ...
+    tags = local.COMMON_TAGS
+}
+
+locals {
+    COMMON_TAGS = {
+        Name = "NAME"
+        Department = "DEPARTMENT"
+    }
+    resource_count = VALUE
+}
+```
+
+## DYNAMIC BLOCK and SPLAT EXPRESSIONS
+* When there are too many ingress rules to be applied to a VPC, this way helps
+```tcl
+resource "aws_security_group" "RESOURCE_NAME" {
+    name = "NAME"
+    vpc_id = aws_vpc.VPC_RESOURCE_NAME.id
+    dynamic "ingress" {
+        for_each = var.INGRESS_VARIABLE
+        content {
+            from_port = INGRESS_VARIABLE.value
+            to_port = INGRESS_VARIABLE.value
+            protocol = "tcp"
+            cidr_blocks = [ "0.0.0.0/0" ]
+        }
+    }
+}
+
+output "to_ports" { # THIS IS A SPECIAL EXPRESSION CALLED SPLAT THAT ITERATES THROUGH ALL THE ELEMENTS
+    value = aws_security_group.RESOURCE_NAME.ingress[*].to_port
+}
+```
+
+## WORKSPACES
+* Logical sections in terraform project
+* Allow to use configurration files within a directory to be reused multiple times for different purposes
+```
+root_proj_dir
+    main.tf
+    variables.tf
+```
+| COMMAND | EFFECT |
+| ------- | ------ |
+| `terraform workspce new WORKSPACE_NAME` | Create workspace |
+| `terraform workspace list` | List workspaces |
+| `terraform workspace select WORKSPACE_NAME` | Select workspaces |
+
+> [!TIP]
+> ### EXAMPLE
+> * Manage resource in multiple environments
+> * `main.tf`
+> ```tcl
+> resource "aws_instance" "RESOURCE_NAME" {
+>     ami = "AMI"
+>     instance_type = lookup(var.instance_type, terraform.workspace)
+> }
+> ```
+> * `variable.tf`
+> ```tcl
+> variable "instance_type" {
+>     type = map
+>     default = {
+>         "development" = "t2.micro"
+>         "production" = "m5.large"
+>     }
+> }
+> ```
+
+
+> [!TIP]
+> * Now here is a catch, we do not have any terraform.tfstate file in the main directory, now we have a new subdirectory structure where all the state files are stored named `terraform.tfstate.d`
+>
+> ```
+> terraform.tfstate.d
+>     WORKSPACE1
+>         terraform.tfstate
+>     WORKSPACE2
+>         terraform.tfstate
+> ```
+
 
 ## AWS
 ### IAM
@@ -801,220 +1092,6 @@ provider "aws" {
 }
 ```
 
-## LOGGING and DEBUG
-* To enable logging, run `export TF_LOG=LOG_LEVEL` before terraform commands
-* Store all the logs in files `export TF_LOG_PATH=PATH`
-* There are few `LOG_LEVEL` in terraform:
-    - `INFO`
-    - `WARNING`
-    - `ERROR`
-    - `DEBUG`
-    - `TRACE`
-
-## MODULE
-* A configuration directory containing `.tf` files is a module in itself
-> [!IMPORTANT]
-> ### EXAMPLE
-> ```tcl
-> root_proj_dir
->     modules
->         payroll_app
->             app_server.tf
->             s3_bucket.tf
->             dynamodb_table.tf
->             variables.tf
->     us_server
->         main.tf 
->     uk_server
->         main.tf
->
-> # root_proj_dir/modules/payroll_app/app_server.tf
-> resource "aws_instance" "app_server" {
->     ami = var.ami
->     instance_type = "t2.medium"
->     tags = {
->         Name = "${var.app_region}-app-server"
->     }
->     depends_on = [
->                     aws_dynamodb_table.payroll_db
->                     aws_s3_bucket.payroll_data
->                 ]
->
-> # root_proj_dir/modules/payroll_app/s3_bucket.tf
-> resource "aws_s3_bucket" "payroll_data" {
->     bucket = "${var.app_region}-${var.bucket}"
-> }
->
-> # root_proj_dir/modules/payroll_app/dynamodb_table.tf
-> resource "aws_dynamodb_table" "payroll_db" {
->     name = "user_data"
->     billing_mode = "PAY_PER_REQUEST"
->     hash_key = "EmployeeID"
->
->     attributes = {
->         name = "EmployeeID"
->         type = "N"
->     }
-> }
->
-> # root_proj_dir/modules/payroll_app/variables.tf
-> variable "app_region" {
->     type = string
-> }
-> variable "bucket" {
->     default = "flexit-payroll-alpha-22001c"
-> }
-> variable "ami" {
->     type = string
-> }
->
-> # root_proj_dir/us_server/main.tf
-> module "us_payroll" {
->     source = "../modules/payroll_app"
->     app_region = "us-east-1" # PASSING VARIABLES TO MODULE VARIABLES
->     ami = "ami-12314234243"
-> }
->
-> resource "aws_instance" "showpiece_ec2" {
->     ami = "ami-123131131231"
->     instance_type = "t2.micro"
->     depends_on = [
->                     module.us_payroll.aws_instance.app_server
->                 ]
-> }
->
-> # root_proj_dir/us_server/provider.tf
-> provider "aws" {
->     region = "us-east-1"
-> }
-> ```
-
-> [!TIP]
-> ### MODULES FROM TERRAFORM REGISTRY
-> * Search terraform registry for usage and availability
-> * Install terraform module using `terraform get`, but make sure that it has been used by the configuration files
-> * Using the `terraform-aws-modules/security-group/aws/modules/ssh`
-> ```tcl
-> # main.tf
-> module "sec_grp_ssh" {
->     source = "terraform-aws-modules/security-group/aws/modules/ssh"
->     version = "3.16.0"
->     vpc_id = "vpc-1231243"
->     ingress_cidr_blocks = [
->                             "10.10.0.0/16"
->                         ]
->     name = "ssh-access"
-> }
-> ```
-
-## TERRAFORM FUNCTIONS
-* We have already seen some functions like `file('PATH')` and `toset(var.VARIABLE_NAME)` and `len(var.VARIABLE_NAME)`
-### NUMERIC FUNCTIONS
-* `max(1,2,3,4)` and `min(1,2,3,4)`
-* To use sets or lists in min and max functions we must do it like this
-```tcl
-variable "huh" {
-    type = set(number)
-    default = [1,2,3,4]
-}
-
-# TERRAFORM CONSOLE
-> max(var.huh...) # THESE THREE DODS ARE EXPANSION SYNTAX
-```
-* `ceil(10.12)` and `floor(1.33)`
-
-### STRING FUNCTIONS
-* `split(',', 'uhhu,uhu,df,vdh,df,df')`
-* `upper('skjdhvljhd')`
-* `lower('JHBHBvihvibDFF')`
-* `substr('skjdbbvjbsjlv', START_OFFSET, TOTAL_CHARACTERS)`
-* `join(',', ['sdfsd','hfghf','wrew','bvc','yi'])`
-
-### COLLECTION FUNCTIONS
-* `len(var.VARIABLE_NAME)`
-* `index(var.VARIABLE_NAME, TO_FIND)`
-* `element(var.VARIABLE_NAME, INDEX)`
-* `contains(var.VARIABLE_NAME, TO_FIND)`
-
-### MAP FUNCTIONS
-* `keys(var.VARIABLE_NAME)`
-* `values(var.VARIABLE_NAME)`
-* `lookup(var.VARIABLE_NAME, KEY)`
-* `lookup(var.VARIABLE_NAME, KEY, DEFAULT_VALUE)`
-
-### CONDITIONAL STATEMENTS
-* Almost same as python but some anomalies are there
-* `&&` and, `||` or, `!` not
-* `8 == '8'` gives true
-#### IF CONDITIONS
-* `condition ? true_val : false_val`
-```tcl
-# main.tf
-resource "random_password" "pass_gen" {
-    length = var.length < 8 ? 8 : var.length
-}
-output password {
-    value = random_password.pass_gen.result
-}
-
-# variables.tf
-variable length {
-    type = number
-    desription = "huh"
-}
-
-$ > terraform apply --var=length=5
-```
-
-## WORKSPACES
-* Logical sections in terraform project
-* Allow to use configurration files within a directory to be reused multiple times for different purposes
-```
-root_proj_dir
-    main.tf
-    variables.tf
-```
-| COMMAND | EFFECT |
-| ------- | ------ |
-| `terraform workspce new WORKSPACE_NAME` | Create workspace |
-| `terraform workspace list` | List workspaces |
-| `terraform workspace select WORKSPACE_NAME` | Select workspaces |
-
-> [!TIP]
-> ### EXAMPLE
-> * Manage resource in multiple environments
-> * `main.tf`
-> ```tcl
-> resource "aws_instance" "RESOURCE_NAME" {
->     ami = "AMI"
->     instance_type = lookup(var.instance_type, terraform.workspace)
-> }
-> ```
-> * `variable.tf`
-> ```tcl
-> variable "instance_type" {
->     type = map
->     default = {
->         "development" = "t2.micro"
->         "production" = "m5.large"
->     }
-> }
-> ```
-
-
-> [!TIP]
-> * Now here is a catch, we do not have any terraform.tfstate file in the main directory, now we have a new subdirectory structure where all the state files are stored named `terraform.tfstate.d`
->
-> ```
-> terraform.tfstate.d
->     WORKSPACE1
->         terraform.tfstate
->     WORKSPACE2
->         terraform.tfstate
-> ```
-
-
-
 
 #### CREATING KEY PAIRS and USING IN EC2
 ```tcl
@@ -1041,287 +1118,3 @@ resource "aws_instance" "INSTANCE_NAME" {
     key_name = data.aws_key_pair.KEY_NAME.key_name
 }
 ```
-
-
-
-## META ARGUMENTS
-### COUNT
-* Count issues the number of instances to be created for that resource block
-* Instances are created as a list
-```tcl
-variable "VARIABLE_NAME" {
-    type = list
-    default = ["R1", "R2", "R3"]
-}
-
-resource "RESOURCE_TYPE" "RESOURCE_NAME" {
-    ...
-    count = length(var.VARIABLE_NAME)
-    tags = {
-        Name = var.VARIABLE_NAME[count.index]
-    }
-}
-```
-
-> [!CAUTION]
-> * If "R1" removed from the resource list, terraform will show, 1 resource to be deleted and 2 to be modified
-> * This is because when R1 removed, R2 and R3 shift right in index, so they are recreated
-
-### FOR_EACH
-* An iterator that works with `map` and `set`
-* Instances are created as a map instead of a list
-```tcl
-variable "VARIABLE_NAME" {
-    type = set
-    default = ["R1", "R2", "R3"]
-}
-
-resource "INSTANCE_TYPE" "INSTANCE_NAME" {
-    ...
-    for_each = var.VARIABLE_NAME
-    tags = {
-        Name = each.value
-    }
-}
-```
-
-> [!NOTE]
-> * When we remove a resource from the set or map, say R1, only R1 is destroyed, none is recreated
-
-### PROVISIONERS
-* Provides features to run tasks and commands on remote resources and locally on the machine
-
-> [!TIP]
-> * Try avoiding provisioners and use native solutions provided by cloud platforms like `aws user data`
-
-#### REMOTE EXEC
-* Run tasks on remote resource after the resource is deployed
-* All these commands need connection to be established, in our case it is ssh, so we use the connection block
-```tcl
-resource "aws_instance" "RESOURCE_NAME" {
-    ami = "AMI"
-    instance_type = "INSTANCE_TYPE"
-    provisioner "remote-exec" {
-        inline = [
-            "sudo apt update",
-            "sudo apt install nginx -y",
-            "sudo systemctl enable nginx",
-            "sudo systemctl start nginx"
-        ]
-    }
-    connection {
-        type = "ssh"
-        host = self.public_ip
-        user = "ubuntu"
-        private_key = file("PATH_TO_PRIV_KEY")
-    }
-    key_name = aws_key_pair.KEY_NAME.key_name
-    vpc_security_group_ids = [ aws_security_group.ssh-access.id ]
-}
-```
-
-#### LOCAL EXEC
-* Run tasks on local machine
-* For example storing the public ip of instance
-* If the command fails, the terraform resource provisioning also fails
-```tcl
-resource "aws_instance" "RESOURCE_NAME" {
-    ...
-    provisioner "local-exec" {
-        command = "echo ${aws_instance.RESOURCE_NAME.public_ip} >> /tmp/ips.txt"
-    }
-    provisioner "local-exec" {
-        when = destroy
-        command = "echo ${aws_instance.RESOURCE_NAME.public_ip} destroyed >> /tmp/nips.txt"
-    }
-    provisioner "local-exec" { # CONTINUE EVEN IF PROVISIONER COMMAND FAILS
-        on_failure = continue
-        command = "echo 'asd'"
-    }
-}
-```
-
-## BUILTIN FUNCTIONS
-
-### NUMERIC FUNCTIONS
-* **max()**
-    - The `...` at the end of variable name is for expansion
-```tcl
-variable "VARIABLE_NAME" {
-    type = list(number)
-    default = [ 125, 6, 7 ]
-}
-
-variable "NAME" {
-    type = number
-    default = max(var.VARIABLE_NAME...)
-}
-```
-* Similarly we use `ceil()`, `floor()`
-
-### STRING FUNCTIONS
-* **split()**
-```tcl
-variable "VARIABLE_NAME" {
-    type = string
-    default = "abc,aws,qwe"
-}
-
-variable "NAME" {
-    default = split("SPLIT_CHARACTER", var.VARIABLE_NAME)
-}
-```
-* Similarly we use `upper()`, `lower()`, `title()` functions
-
-### COLLECTION FUNCTIONS
-* `length(var.VARIABLE_NAME)`
-* **index()**
-```tcl
-variable "VARIABLE_NAME" {
-    default = ["qwe", "asd", "zxc"]
-    type = list(string)
-}
-
-variable "NAME" {
-    default = index(var.VARIABLE_NAME, "qwe")
-}
-```
-* **element()**
-```tcl
-variable "VARIABLE_NAME" {
-    default = ["qwe", "asd", "zxc"]
-    type = list(string)
-}
-
-variable "NAME" {
-    default = element(var.VARIABLE_NAME, 2)
-}
-```
-* **contains()**
-```tcl
-variable "VARIABLE_NAME" {
-    default = ["qwe", "asd", "zxc"]
-    type = list(string)
-}
-
-variable "NAME" {
-    default = contains(var.VARIABLE_NAME, "qwe")
-}
-```
-
-### MAP FUNCTIONS
-* **keys()**
-```tcl
-variable "VARIABLE_NAME" {
-    default = {
-        "us-east-1" = "qwe",
-        "ap-south-1" = "asd",
-        "ca-central-1" = "zxc"
-    }
-    type = map
-}
-
-variable "NAME" {
-    default = keys(var.VARIABLE_NAME)
-}
-```
-* **values()**
-```tcl
-variable "VARIABLE_NAME" {
-    default = {
-        "us-east-1" = "qwe",
-        "ap-south-1" = "asd",
-        "ca-central-1" = "zxc"
-    }
-    type = map
-}
-
-variable "NAME" {
-    default = values(var.VARIABLE_NAME)
-}
-```
-* **lookup()**
-```tcl
-variable "VARIABLE_NAME" {
-    default = {
-        "us-east-1" = "qwe",
-        "ap-south-1" = "asd",
-        "ca-central-1" = "zxc"
-    }
-    type = map
-}
-
-variable "NAME" {
-    default = lookup(var.VARIABLE_NAME, "ap-south-1", DEFAULT_VALUE)
-}
-```
-
-## OPERATORS AND CONDITIONALS
-* **Comparison operators**: `==`, `!=`, `<`, `>`, `<=`, `>=`
-* **Logical operators**: `&&`, `||`, `!`
-* **Condition**
-```tcl
-variable "length" {
-    type = string
-}
-resource "random_password" "password" {
-    length = var.length < 8 ? 8 : var.length
-}
-```
-
-## LOCAL VALUES
-* There are repetitive tasks like adding tage to resources, to eleminate such function, we use loacl values
-```tcl
-resource "RESOURCE_TYPE" "RESOURCE_NAME" {
-    count = locals.resource_count
-    ...
-    tags = local.COMMON_TAGS
-}
-
-locals {
-    COMMON_TAGS = {
-        Name = "NAME"
-        Department = "DEPARTMENT"
-    }
-    resource_count = VALUE
-}
-```
-
-## DYNAMIC BLOCK and SPLAT EXPRESSIONS
-* When there are too many ingress rules to be applied to a VPC, this way helps
-```tcl
-resource "aws_security_group" "RESOURCE_NAME" {
-    name = "NAME"
-    vpc_id = aws_vpc.VPC_RESOURCE_NAME.id
-    dynamic "ingress" {
-        for_each = var.INGRESS_VARIABLE
-        content {
-            from_port = INGRESS_VARIABLE.value
-            to_port = INGRESS_VARIABLE.value
-            protocol = "tcp"
-            cidr_blocks = [ "0.0.0.0/0" ]
-        }
-    }
-}
-
-output "to_ports" { # THIS IS A SPECIAL EXPRESSION CALLED SPLAT THAT ITERATES THROUGH ALL THE ELEMENTS
-    value = aws_security_group.RESOURCE_NAME.ingress[*].to_port
-}
-```
-
-## MODULES
-* Every directory containing terraform files is a module
-* Root module is the module which is called by the user
-```tcl
-# IMPORTING AND USING MODULES
-module "NAME" {
-    source = "MODULE_PATH"
-    version = "VERSION"
-    
-    ARGUMENT1 = VALUE1
-    ARGUMENT2 = VALUE2
-    ...
-}
-```
-
-* Example
