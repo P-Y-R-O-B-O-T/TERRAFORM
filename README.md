@@ -31,7 +31,7 @@
 * Terraform state is the blueprint of what is deployed by terraform, it can read attributes of existing infrastructure components by configuring data sources
 * Terraform can import other resources inside it if any were created manually
 
-#### HCL BASICS
+## HCL BASICS
 ```tcl
 <block> <resource_type> <resource_name> <parameters> {
     key1 = val1
