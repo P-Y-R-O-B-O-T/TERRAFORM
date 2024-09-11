@@ -2,34 +2,34 @@
 * Infrastructure as code is the process of managing and provisioning computer data center resources through machine-readable definition files, rather than physical hardware configuration or interactive configuration tools.
 
 #### PROBLEMS WITH TRADITIONAL IT INFRASTRUCTURE DEPLOYMENTS
-    - Slow deployments
-    - Expensive
-    - Limited automation
-    - Human error
-    - Inconsistencies
+* Slow deployments
+* Expensive
+* Limited automation
+* Human error
+* Inconsistencies
 
 #### TYPES OF IAC TOOLS
-    - Configuration managenent: Ansible, Puppet, Salt Stack
-        - Install and manage software
-        - Maintains standard structure
-        - Version control
-        - Idempotent
-    - Server templating: Docker, Vagrant, Packer
-        - Creation of a custom image of a virtual machine or a container
-        - Pre installed dependencies and softwares
-        - Virtual machine or docker images
-        - Immutable infrastructure
-    - Provisioning tools: Terraform, Cloudformation
-        - Deploy immutable infrastructure resources
-        - Servers, databases, Networks, Components etc
-        - Multiple providers
+* Configuration managenent: Ansible, Puppet, Salt Stack
+    - Install and manage software
+    - Maintains standard structure
+    - Version control
+    - Idempotent
+* Server templating: Docker, Vagrant, Packer
+    - Creation of a custom image of a virtual machine or a container
+    - Pre installed dependencies and softwares
+    - Virtual machine or docker images
+    - Immutable infrastructure
+* Provisioning tools: Terraform, Cloudformation
+    - Deploy immutable infrastructure resources
+    - Servers, databases, Networks, Components etc
+    - Multiple providers
 
 #### WHY TERRAFORM ?
-    - Can handle multiple cloud platforms, using providers
-    - HCL - declarative language (.tf)
-    - Resource lifecycle managenent (provisioning, configuring, decommissioning)
-    - Terraform state is the blueprint of what is deployed by terraform, it can read attributes of existing infrastructure components by configuring data sources
-    - Terraform can import other resources inside it if any were created manually
+* Can handle multiple cloud platforms, using providers
+* HCL - declarative language (.tf)
+* Resource lifecycle managenent (provisioning, configuring, decommissioning)
+* Terraform state is the blueprint of what is deployed by terraform, it can read attributes of existing infrastructure components by configuring data sources
+* Terraform can import other resources inside it if any were created manually
 
 #### HCL BASICS
 ```tcl
@@ -213,7 +213,7 @@ variable "VARIABLE_NAME" {
 }
 ```
 
-#### .tfvars FILE
+#### .tfvars and .tfvars.json FILE
 * We can define variables in a `.tfvars` file in following format
 ```tcl
 var1 = "val1"
@@ -221,8 +221,9 @@ var2 = "2"
 seperator = "."
 ```
 * Then use command like `terraform apply -var-file variables.tfvars`
+* To make this file automatically loadable by terraform save it as `*.auto.tfvars` or `*.auto.tfvars.json`
 
-* **Variable Precedence:** `main.tf > -var or -var-file > *.auto.tfvars > terraform.tfvars > environment variables`
+* **Variable Precedence:** `main.tf > -var or -var-file > *.auto.tfvars (alphabetical order) > terraform.tfvars > environment variables`
 
 #### USING OUTPUT OF ONE VARIABLE IN ANOTHER
 ```tcl
@@ -619,7 +620,7 @@ resource "aws_dynamodb_table" "hu" {
 ```
 
 ### EC2
-```
+```tcl
 # main.tf
 resource "aws_instance" "my_ec2" {
     ami = "AMI"
@@ -636,12 +637,6 @@ resource "aws_instance" "my_ec2" {
                 sudo apt install ansible
                 EOF
 
-    provisioner "remote-exec" { # EXECUTE COMMANDS IN REMOTE SERVER
-        inline = [
-                    "sudo apt update"
-                    "sudo apt install htop"
-                    "sudo apt install nginx"
-                ]
     }
     connection { # PROVIDE CONNECTION PARAMETERS FOR PROVISIONER REMOTE-EXEC
         type = "ssh"
@@ -704,20 +699,14 @@ terraform {
         bucket = "BUCKET_NAME"
         key = "PATH_TO_STATE_FILE_IN_S3_BUCKET"
         region = "us-west-1"
-        dynamodb = "state-locking" # THE TABLE MUST HAVE A PRIMARY KAY AS LockID
+        dynamodb = "state-locking" # THE TABLE MUST HAVE A PRIMARY KEY AS LockID
     }
 }
 
 # main.tf
 CREATE RESOURCES AS USUAL
-resource "aws_dynamodb_table" "state_locking" {
-    name = "state-locking"
-    hash_key = "LockID"
-    billing_mode = "PEY_PER_REQUEST"
-    attribute = {
-        name = "LockID"
-        type = "S"
-    }
+resource "RESOURCE_TYPE" "RESOURCE_NAME" {
+    ...
 }
 ```
 ### STATE COMMANDS
@@ -787,7 +776,7 @@ variable ami {
 * `dir2` becomes the root module and `dir1` becomes the child module or imported module
 
 * Another example:
-```
+```tcl
 root_proj_dir
     modules
         payroll_app
@@ -865,7 +854,7 @@ provider "aws" {
 * Search terraform registry for usage and availability
 * Install terraform module using `terraform get`, but make sure that it has been used by the configuration files
 * Using the `terraform-aws-modules/security-group/aws/modules/ssh`
-```
+```tcl
 # main.tf
 module "sec_grp_ssh" {
     source = "terraform-aws-modules/security-group/aws/modules/ssh"
@@ -883,7 +872,7 @@ module "sec_grp_ssh" {
 ### NUMERIC FUNCTIONS
 * `max(1,2,3,4)` and `min(1,2,3,4)`
 * To use sets or lists in min and max functions we must do it like this
-```
+```tcl
 variable "huh" {
     type = set(number)
     default = [1,2,3,4]
@@ -943,7 +932,7 @@ root_proj_dir
 * To init or create a new workspace we use `terraform workspce new WORKSPACE_NAME`
 * To list existing workspaces `terraform workspace list`
 * To switch to a workspae `terraform workspace select WORKSPACE_NAME`
-```
+```tcl
 # variables.tf
 variable region {
     default = "us-east-1"
@@ -977,4 +966,577 @@ terraform.tfstate.d
         terraform.tfstate
     WORKSPACE2
         terraform.tfstate
-``` 
+```
+
+* Terraform considers any file with `.tf` config as terraform in the project directory
+
+## TERRAFORM PROVIDERS
+* Official, partnered, community providers
+* Provider full names follow the convention `HOSTNAME/ORGANIZATIONAL_NAMESPACE/PLUGIN_NAME: version = "~> VERSION"`, where the `HOST_NAME` is the hostname of the plugin
+
+* Use specific version of the plugins
+```tcl
+terraform {
+    required_providers {
+        PROVIDER_NAME = {
+            source = "SOURCE"
+            version = "VERSION"
+        }
+    }
+}
+```
+* `~> x.x.x` means any version less than `x.x+1.0` and greater than or equal to `x.x.x`
+
+* Some times in the script we need to work with multi ple regions in aws
+* We can create multiple aws providers of aws type with different regions and call them according to usage
+```tcl
+provider "aws" {
+    region = "us-east-1"
+    alias = "aws_us"
+}
+
+provider "aws" {
+    region = "ap-south-1"
+    alias = "aws_mumbai"
+}
+
+# CREATE EC2 IN US
+resource "aws_instance" "testing_nfs" {
+    ami = "AMI"
+    instance_type = "INSTANCE_TYPE"
+    provider = aws.aws_us #PROVIDER FORMAT IS "PROVIDER_NAME.ALIAS_NAME"
+}
+
+# CREATE EC2 IN MUMBAI
+resource "aws_instance" "testing_nfs" {
+    ami = "AMI"
+    instance_type = "INSTANCE_TYPE"
+    provider = aws.aws_mumbai #PROVIDER FORMAT IS "PROVIDER_NAME.ALIAS_NAME"
+}
+```
+
+## VARIABLES
+* If we do not provide any default value to a variable or override it programatically, it prompts while creating resource
+* Variables format
+```tcl
+variable "VARIABLE_NAME" {
+    default = VALUE
+    description = "DESCRIPTION"
+    type = TYPE
+    sensitive = SENSITIVITY
+    validation {
+        condition = CONDITION
+        error_message = "ERROR_MESSAGE"
+    }
+}
+```
+* `default` parameter contains the default/value of the variable
+* `description` is just a description
+* `type` is the type of data we are storing
+* `sensitive` to define the sensitivity of the data, this decides wheather this variable is visible or not in the terraform state file
+    - If `true`: not visible in the state file
+    - If `false`: visible in the state file
+* `validation is to make sure that the variable is following a convention or have a right value and many more`
+* Even the output resource is not able to print the sensitive info/variable, but at the same time, we have a sensitive clause for output resource too which is just to avoid any mishaps
+```tcl
+output "OUTPUT_NAME" {
+    value = var.SECRET_VARIABLE_NAME
+    sensitive = true
+}
+```
+* We can securely access sensitive variables by using
+```bash
+terraform output SECRET_VARIABLE_NAME
+```
+
+### Examples:
+* For checking that a variable that we are defining is starting with `ami-` or not
+```tcl
+variable "ami_name" {
+    default = "SOME_NAME"
+    type = string
+    validation {
+        condition = substr(var.ami_name, 0, 4) == "ami-"
+        error_message = "This variable must start with 'ami-'"
+          }
+}
+```
+* For checking if a number is not exceeding a range
+```tcl
+variable "just_a_number" {
+    default = 123
+    type = number
+    validation {
+        condition = var.just_a_number >= var.lesser_number && var.just_a_number < var.greater_number
+        error_message = "This number must be in a range \[ ${var.lesser_number} , ${var.greater_number} )"
+    }
+          }
+```
+
+#### CREATING KEY PAIRS and USING IN EC2
+```tcl
+resource "aws_key_pair" "KEY_NAME" {
+    key_name = "key_production"
+    public_key = "..."
+}
+
+resource "aws_instance" "my_ec2" {
+    ami = "AMI"
+    instance_type = "INSTANCE_TYPE"
+    key_name = aws_key_pair.KEY_NAME.key_name
+}
+```
+
+
+#### RESOURCE TARGETING
+* There are times when there are changes in config file but only few are needed to implemented at the momment, to solve that issue, we have this feature
+* This feature should be rarely used in case of urgency
+```bash
+terraform apply -target RESOURCE_TYPE.RESOURCE_NAME
+```
+
+#### DATA SOURCES
+* Generally all data and config for resources are defined in the terraform file itself, but what if one already exist and we want to reuse it.
+* A resource is used to create infrastructure but a data source is created to read infrastructure
+* For example an aws keypair exist in AWS and it is needed to create a new resource
+```tcl
+data "aws_key_pair" "KEY_NAME" {
+    key_name = "KEY_NAME_IN_AWS"
+}
+
+resource "aws_instance" "INSTANCE_NAME" {
+    ami = "AMI"
+    instance_type = "INSTANCE_TYPE"
+    key_name = data.aws_key_pair.KEY_NAME.key_name
+}
+```
+
+## STATE
+* Terraform refreshes its state before taking any actions
+* Terraform can be forced not to refresh the state using `terraform apply -refresh=false`
+    - This could come in handy when working in large infrastructure where 1000s of resources are being managed
+
+* **State Locking**: Terraform feature to avoid corruption of state file when two terraform workflows are running simultaneously
+* **Remote State**: Project are worked upon as a team, everybody needs access to the state file while working on the infrastructure
+* Remote state files provide : `team collaboration`, `security`, `reliability`
+
+#### REMOTE STATE and STATE LOCKING (REMOTE BACKEND)
+* Types of backend:
+    - s3
+    - AzureRM
+    - GCS
+    - Consul
+    - Artifactory
+    - HCP
+* Along with the `main.tf` also create one more file `terraform.tf` that contains remote backend configurations
+* Configure `terraform.tf` as below
+```tcl
+terraform {
+    backend "s3" {
+        bucket = "BUCKET_NAME"
+        key = "PATH_OF_TERRAFORM_FILE_ON_S3"
+        region = "BUCKET_REGION"
+        dynamodb_table = "TABLE_NAME"
+    }
+}
+```
+* Before using the remote backend, run `terraform init` to initialize it
+
+#### DEPENDENCY LOCK FILE (`terraform.lock.hcl`)
+* It helps managing externally provided dependencies
+* Ensures all providers are being used in the same version accross all the environments and operations 
+* It provides:
+    - Consistency
+    - Reproducibility
+    - Compatibility
+* It contains:
+    - Exact provider versions
+    - Provider checksums
+    - Information
+* To update the state lock file when upgrading to new versions of providers, run `terraform init -upgrade`
+* Always commit the state lock file
+
+## COMMANDS
+| COMMAND | EFFECT |
+| ------- | ------ |
+| `terraform validate` | Validate the syntactical and logical errors in the file |
+| `terraform fmt` | Reformats the scripts |
+| `terraform show` | Show current infrastructure |
+| `terraform show -json` | See current infrastructure in json format |
+| `terraform providers` | See all the providers being used |
+| `terraform output` | See all output resources |
+| `terraform output RESOURCE_TYPE.RESOURCE_NAME ...` | Print specific variables |
+| `terraform refresh` | Sync terraform with real world infrastructure |
+| `terraform graph` | Generate a visual representation of dependencies in terraform execution plan, this output can be used with `graphwiz` |
+| `terraform state COMMAND RESOURCE_TYPE.RESOURCE_NAME` | Edit state file, where `COMMAND` can be `list`, `mv`, `pull`, `rm`, `show`, `push` |
+
+> [!IMPORTANT]
+> ### STATE SUBCOMMANDS
+> * `pull`: Pulling the state file from remote backend
+> * `mv`: Renaming the resources `terraform state mv RESOURCE_TYPE.RESOURCE_NAME_OLD RESOURCE_TYPE.RESOURCE_NAME_NEW`
+> * `rm`: Removing the resources from state file (does not delete resource), once removed from state file, one must remove the associated resource blocks from config file too
+> * `push`: Override remote state file with local state file, use with caution (very dangerous) `terraform state push PATH_OF_TERRAFORM_FILE`
+
+## LIFECYCLE RULES
+* create_before_destroy
+* prevent_destroy - prevents resource from being destroyed such as data bases
+* ignore_changes - prevents resource from updating
+```tcl
+resoruce "RESOURCE_TYPE" "RESOURCE_NAME" {
+    ...
+    lifecycle {
+        # ATTRIBUTES CAN BE `tags` `instance_type` etc
+        # OR WE CAN SET ignore_changes = all to avoid change due to any parameter
+        ignore_changes = [
+          ATTRIBUTE_1
+          ATTRIBUTE_2
+          ...
+          ]
+    }
+}
+```
+
+```tcl
+resource "RESOURCE_TYPE" "RESOURCE_NAME" {
+    ...
+    lifecycle {
+        LIFECYCLE_RULE = VALUE
+    }
+}
+```
+
+### TAINTING
+* When terraform is unable to create the resource, terraform taints it
+* Tainting means marking to recreate
+* There are situations when we want to recreate a reource forcefuly, we taint it using
+```bash
+terraform taint RESOURCE_TYPE.RESOURCE_NAME
+```
+* To untaint the resource
+```bash
+terraform untaint RESOURCE_TYPE.RESOURCE_NAME
+```
+
+## LOGGING
+* To enable logging, run `export TF_LOG=LOG_LEVEL` before terraform commands
+* Store all the logs in files `export TF_LOG_PATH=PATH`
+* There are few `LOG_LEVEL` in terraform:
+    - `INFO`
+    - `WARNING`
+    - `ERROR`
+    - `DEBUG`
+    - `TRACE`
+
+## TERRAFORM WORKSPACES
+* Logical sections in terraform project
+
+| COMMAND | EFFECT |
+| ------- | ------ |
+| `terraform workspace list` | List workspaces |
+| `terraform workspace new WORKSPACE_NAME` | Create a new workspace |
+| `terraform workspace select WORKSPACE_NAME` | Select a workspace |
+
+* State files for different workspaces are found in `terraform.tfstate.d/`
+
+> [!TIP]
+> * Manage resources of different environments of infrastructure
+> * EXAMPLE
+>     - `main.tf`
+> ```tcl
+> resource "aws_instance" "RESOURCE_NAME" {
+>     ami = "AMI"
+>     instance_type = lookup(var.instance_type, terraform.workspace)
+> }
+> ```
+>     - `variable.tf`
+> ```tcl
+> variable "instance_type" {
+>     type = map
+>     default = {
+>         "development" = "t2.micro"
+>         "production" = "m5.large"
+>     }
+> }
+> ```
+
+## META ARGUMENTS
+### COUNT
+* Count issues the number of instances to be created for that resource block
+* Instances are created as a list
+```tcl
+variable "VARIABLE_NAME" {
+    type = list
+    default = ["R1", "R2", "R3"]
+}
+
+resource "RESOURCE_TYPE" "RESOURCE_NAME" {
+    ...
+    count = length(var.VARIABLE_NAME)
+    tags = {
+        Name = var.VARIABLE_NAME[count.index]
+    }
+}
+```
+
+> [!CAUTION]
+> * If "R1" removed from the resource list, terraform will show, 1 resource to be deleted and 2 to be modified
+> * This is because when R1 removed, R2 and R3 shift right in index, so they are recreated
+
+### FOR_EACH
+* An iterator that works with `map` and `set`
+* Instances are created as a map instead of a list
+```tcl
+variable "VARIABLE_NAME" {
+    type = set
+    default = ["R1", "R2", "R3"]
+}
+
+resource "INSTANCE_TYPE" "INSTANCE_NAME" {
+    ...
+    for_each = var.VARIABLE_NAME
+    tags = {
+        Name = each.value
+    }
+}
+```
+
+> [!NOTE]
+> * When we remove a resource from the set or map, say R1, only R1 is destroyed, none is recreated
+
+### PROVISIONERS
+* Provides features to run tasks and commands on remote resources and locally on the machine
+
+> [!TIP]
+> * Try avoiding provisioners and use native solutions provided by cloud platforms like `aws user data`
+
+#### REMOTE EXEC
+* Run tasks on remote resource after the resource is deployed
+* All these commands need connection to be established, in our case it is ssh, so we use the connection block
+```tcl
+resource "aws_instance" "RESOURCE_NAME" {
+    ami = "AMI"
+    instance_type = "INSTANCE_TYPE"
+    provisioner "remote-exec" {
+        inline = [
+            "sudo apt update",
+            "sudo apt install nginx -y",
+            "sudo systemctl enable nginx",
+            "sudo systemctl start nginx"
+        ]
+    }
+    connection {
+        type = "ssh"
+        host = self.public_ip
+        user = "ubuntu"
+        private_key = file("PATH_TO_PRIV_KEY")
+    }
+    key_name = aws_key_pair.KEY_NAME.key_name
+    vpc_security_group_ids = [ aws_security_group.ssh-access.id ]
+}
+```
+
+#### LOCAL EXEC
+* Run tasks on local machine
+* For example storing the public ip of instance
+* If the command fails, the terraform resource provisioning also fails
+```tcl
+resource "aws_instance" "RESOURCE_NAME" {
+    ...
+    provisioner "local-exec" {
+        command = "echo ${aws_instance.RESOURCE_NAME.public_ip} >> /tmp/ips.txt"
+    }
+    provisioner "local-exec" {
+        when = destroy
+        command = "echo ${aws_instance.RESOURCE_NAME.public_ip} destroyed >> /tmp/nips.txt"
+    }
+    provisioner "local-exec" { # CONTINUE EVEN IF PROVISIONER COMMAND FAILS
+        on_failure = continue
+        command = "echo 'asd'"
+    }
+}
+```
+
+## BUILTIN FUNCTIONS
+
+### NUMERIC FUNCTIONS
+* **max()**
+    - The `...` at the end of variable name is for expansion
+```tcl
+variable "VARIABLE_NAME" {
+    type = list(number)
+    default = [ 125, 6, 7 ]
+}
+
+variable "NAME" {
+    type = number
+    default = max(var.VARIABLE_NAME...)
+}
+```
+* Similarly we use `ceil()`, `floor()`
+
+### STRING FUNCTIONS
+* **split()**
+```tcl
+variable "VARIABLE_NAME" {
+    type = string
+    default = "abc,aws,qwe"
+}
+
+variable "NAME" {
+    default = split("SPLIT_CHARACTER", var.VARIABLE_NAME)
+}
+```
+* Similarly we use `upper()`, `lower()`, `title()` functions
+
+### COLLECTION FUNCTIONS
+* `length(var.VARIABLE_NAME)`
+* **index()**
+```tcl
+variable "VARIABLE_NAME" {
+    default = ["qwe", "asd", "zxc"]
+    type = list(string)
+}
+
+variable "NAME" {
+    default = index(var.VARIABLE_NAME, "qwe")
+}
+```
+* **element()**
+```tcl
+variable "VARIABLE_NAME" {
+    default = ["qwe", "asd", "zxc"]
+    type = list(string)
+}
+
+variable "NAME" {
+    default = element(var.VARIABLE_NAME, 2)
+}
+```
+* **contains()**
+```tcl
+variable "VARIABLE_NAME" {
+    default = ["qwe", "asd", "zxc"]
+    type = list(string)
+}
+
+variable "NAME" {
+    default = contains(var.VARIABLE_NAME, "qwe")
+}
+```
+
+### MAP FUNCTIONS
+* **keys()**
+```tcl
+variable "VARIABLE_NAME" {
+    default = {
+        "us-east-1" = "qwe",
+        "ap-south-1" = "asd",
+        "ca-central-1" = "zxc"
+    }
+    type = map
+}
+
+variable "NAME" {
+    default = keys(var.VARIABLE_NAME)
+}
+```
+* **values()**
+```tcl
+variable "VARIABLE_NAME" {
+    default = {
+        "us-east-1" = "qwe",
+        "ap-south-1" = "asd",
+        "ca-central-1" = "zxc"
+    }
+    type = map
+}
+
+variable "NAME" {
+    default = values(var.VARIABLE_NAME)
+}
+```
+* **lookup()**
+```tcl
+variable "VARIABLE_NAME" {
+    default = {
+        "us-east-1" = "qwe",
+        "ap-south-1" = "asd",
+        "ca-central-1" = "zxc"
+    }
+    type = map
+}
+
+variable "NAME" {
+    default = lookup(var.VARIABLE_NAME, "ap-south-1", DEFAULT_VALUE)
+}
+```
+
+## OPERATORS AND CONDITIONALS
+* **Comparison operators**: `==`, `!=`, `<`, `>`, `<=`, `>=`
+* **Logical operators**: `&&`, `||`, `!`
+* **Condition**
+```tcl
+variable "length" {
+    type = string
+}
+resource "random_password" "password" {
+    length = var.length < 8 ? 8 : var.length
+}
+```
+
+## LOCAL VALUES
+* There are repetitive tasks like adding tage to resources, to eleminate such function, we use loacl values
+```tcl
+resource "RESOURCE_TYPE" "RESOURCE_NAME" {
+    count = locals.resource_count
+    ...
+    tags = local.COMMON_TAGS
+}
+
+locals {
+    COMMON_TAGS = {
+        Name = "NAME"
+        Department = "DEPARTMENT"
+    }
+    resource_count = VALUE
+}
+```
+
+## DYNAMIC BLOCK and SPLAT EXPRESSIONS
+* When there are too many ingress rules to be applied to a VPC, this way helps
+```tcl
+resource "aws_security_group" "RESOURCE_NAME" {
+    name = "NAME"
+    vpc_id = aws_vpc.VPC_RESOURCE_NAME.id
+    dynamic "ingress" {
+        for_each = var.INGRESS_VARIABLE
+        content {
+            from_port = INGRESS_VARIABLE.value
+            to_port = INGRESS_VARIABLE.value
+            protocol = "tcp"
+            cidr_blocks = [ "0.0.0.0/0" ]
+        }
+    }
+}
+
+output "to_ports" { # THIS IS A SPECIAL EXPRESSION CALLED SPLAT THAT ITERATES THROUGH ALL THE ELEMENTS
+    value = aws_security_group.RESOURCE_NAME.ingress[*].to_port
+}
+```
+
+## MODULES
+* Every directory containing terraform files is a module
+* Root module is the module which is called by the user
+```tcl
+# IMPORTING AND USING MODULES
+module "NAME" {
+    source = "MODULE_PATH"
+    version = "VERSION"
+    
+    ARGUMENT1 = VALUE1
+    ARGUMENT2 = VALUE2
+    ...
+}
+```
+
+* Example
