@@ -74,9 +74,6 @@ BLOCK_TYPE "RESOURCE_TYPE" "RESOURCE_NAME" {
 * Providers are downloaded as hidden directory in the configuration directory
 * If we change config and use a new provider that is not installed, the `terraform apply` command won't work as the provider is not installed, we first need to install it using `terraform init`
 
-> [!NOTE]
-> * Random provider is also important, it is a logical provider **See more in official docs**
-
 ### CONFIGURATION DIRECTORY
 * Resources can be defined by multiple files but all resources should be in the `main.tf` file
 * There are other files too for their own purposes, named: `variables.tf`, `outputs.tf`, `providers.tf` etc
