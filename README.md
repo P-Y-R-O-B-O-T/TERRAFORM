@@ -38,19 +38,20 @@ BLOCK_TYPE "RESOURCE_TYPE" "RESOURCE_NAME" {
 }
 ```
 * A block contains information about the infrastructure platform and resources within the platform that we want to create
-```tcl
-EXAMPLE: CREATING A LOCAL FILE
 
-resource "local_file" "pet" {
-    filename = "/root/pets.txt"
-    content = "HUH"
-}
-
-resource "local_sensitive_file" "secret" { # store sensitive data in a file and do not print sensitive info when we run terraform plan
-    filename = "/root/data.txt"
-    content = "HUH"
-}
-```
+> [!NOTE]
+> ### CREATING A LOCAL FILE
+> ```tcl
+> resource "local_file" "pet" {
+>     filename = "/root/pets.txt"
+>     content = "HUH"
+> }
+>
+> resource "local_sensitive_file" "secret" { # store sensitive data in a file and do not print sensitive info when we run terraform plan
+>     filename = "/root/data.txt"
+>     content = "HUH"
+> }
+> ```
 ```tcl
 EXAMPLE: CREATING A EC2 INSTANCE
 
