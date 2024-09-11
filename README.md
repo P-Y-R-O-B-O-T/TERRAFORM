@@ -326,6 +326,37 @@ output "OUTPUT_NAME" {
 * Each resource in terraform has a id to identify the resources in the real world and it also helps in resolving resource dependencies
 * Terraform also helps in tracking metadata (helps in deleting resources)
 
+> [!IMPORTANT]
+> ### REMOTE STATE and STATE LOCKING (REMOTE BACKEND)
+> * **State Locking**: Terraform feature to avoid corruption of state file when two terraform workflows are running simultaneously
+> * **Remote State**: Project are worked upon as a team, everybody needs access to the state file while working on the infrastructure
+> * Remote state files provide :
+>     - Team collaboration
+>     - Security
+>     - Reliability
+>
+> * Types of backend:
+>     - s3
+>     - AzureRM
+>     - GCS
+>     - Consul
+>     - Artifactory
+>     - HCP
+> * Along with the `main.tf` also create one more file `terraform.tf` that contains remote backend configurations
+> * Configure `terraform.tf` as below
+> ```tcl
+> terraform {
+>     backend "s3" {
+>         bucket = "BUCKET_NAME"
+>         key = "PATH_OF_TERRAFORM_FILE_ON_S3"
+>         region = "BUCKET_REGION"
+>         dynamodb_table = "TABLE_NAME"
+>     }
+> }
+> ```
+> * Before using the remote backend, run `terraform init` to initialize it
+
+
 > [!TIP]
 > #### PERFORMANCE
 > * Performance because of getting state from local system instead of fetching from cloud provider through network (elemination of slow process)
@@ -354,6 +385,13 @@ output "OUTPUT_NAME" {
 > [!IMPORTANT]
 > ### MUTABLE VS IMMUTABLE INFRASTRUCTURE
 > * Terraform uses immutable way of managing resources
+
+### RESOURCE TARGETING
+* There are times when there are changes in config file but only few are needed to implemented at the momment, to solve that issue, we have this feature
+* This feature should be rarely used in case of urgency
+```bash
+terraform apply -target RESOURCE_TYPE.RESOURCE_NAME
+```
 
 ### LIFECYCLE
 * Normally resourecs are destroyed before creating but this can be altered by using `create_before_destroy` parameter for resource in the lifecycle parameter
@@ -387,6 +425,25 @@ data "aws_key_pair" "KEY_PAIR_RESOURCE_NAME" {
 }
 ```
 * Data sources only read from and to the infrastructure and its resources, it does not modify
+
+* Generally all data and config for resources are defined in the terraform file itself, but what if one already exist and we want to reuse it.
+* A resource is used to create infrastructure but a data source is created to read infrastructure
+
+> [!TIP]
+> #### EXAMPLE
+> * For example an aws keypair exist in AWS and it is needed to create a new resource
+> ```tcl
+> data "aws_key_pair" "KEY_NAME" {
+>     key_name = "KEY_NAME_IN_AWS"
+> }
+>
+> resource "aws_instance" "INSTANCE_NAME" {
+>     ami = "AMI"
+>     instance_type = "INSTANCE_TYPE"
+>     key_name = data.aws_key_pair.KEY_NAME.key_name
+> }
+> ```
+
 
 ### META ARGUMENTS
 * We have altready seen two meta arguments `depends_on` and `lifecycle`
@@ -964,18 +1021,6 @@ resource "aws_instance" "my_ec2" {
     key_name = aws_key_pair.KEY_NAME.key_name
 }
 ```
-
-
-#### RESOURCE TARGETING
-* There are times when there are changes in config file but only few are needed to implemented at the momment, to solve that issue, we have this feature
-* This feature should be rarely used in case of urgency
-```bash
-terraform apply -target RESOURCE_TYPE.RESOURCE_NAME
-```
-
-#### DATA SOURCES
-* Generally all data and config for resources are defined in the terraform file itself, but what if one already exist and we want to reuse it.
-* A resource is used to create infrastructure but a data source is created to read infrastructure
 * For example an aws keypair exist in AWS and it is needed to create a new resource
 ```tcl
 data "aws_key_pair" "KEY_NAME" {
@@ -989,36 +1034,6 @@ resource "aws_instance" "INSTANCE_NAME" {
 }
 ```
 
-## STATE
-* Terraform refreshes its state before taking any actions
-* Terraform can be forced not to refresh the state using `terraform apply -refresh=false`
-    - This could come in handy when working in large infrastructure where 1000s of resources are being managed
-
-* **State Locking**: Terraform feature to avoid corruption of state file when two terraform workflows are running simultaneously
-* **Remote State**: Project are worked upon as a team, everybody needs access to the state file while working on the infrastructure
-* Remote state files provide : `team collaboration`, `security`, `reliability`
-
-#### REMOTE STATE and STATE LOCKING (REMOTE BACKEND)
-* Types of backend:
-    - s3
-    - AzureRM
-    - GCS
-    - Consul
-    - Artifactory
-    - HCP
-* Along with the `main.tf` also create one more file `terraform.tf` that contains remote backend configurations
-* Configure `terraform.tf` as below
-```tcl
-terraform {
-    backend "s3" {
-        bucket = "BUCKET_NAME"
-        key = "PATH_OF_TERRAFORM_FILE_ON_S3"
-        region = "BUCKET_REGION"
-        dynamodb_table = "TABLE_NAME"
-    }
-}
-```
-* Before using the remote backend, run `terraform init` to initialize it
 
 #### DEPENDENCY LOCK FILE (`terraform.lock.hcl`)
 * It helps managing externally provided dependencies
