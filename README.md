@@ -126,10 +126,11 @@ BLOCK_TYPE "RESOURCE_TYPE" "RESOURCE_NAME" {
 > ```
 
 ### CONFIGURATION DIRECTORY
+* Terraform considers any file with `.tf` config as terraform in the project directory
 * Resources can be defined by multiple files but all resources should be in the `main.tf` file
 * There are other files too for their own purposes, named: `variables.tf`, `outputs.tf`, `providers.tf` etc
 
-### VARIABLES FILE
+### VARIABLES FILE (`variable.tf`)
 * Store dynamic variables for configurations
 * If we do not provide any default value to a variable or override it programatically, it prompts while creating resource
 
@@ -269,20 +270,55 @@ resource "RESOURCE_NAME" "RESOURCE_NAME" {
 
 ### OUTPUT VARIABLES
 * We can print variables on screen
+* Even the output resource is not able to print the sensitive info/variable, but at the same time, we have a sensitive clause for output resource too which is just to avoid any mishaps
+```tcl
+output "OUTPUT_NAME" {
+    value = var.SECRET_VARIABLE_NAME
+    sensitive = true
+}
 ```
+
+```tcl
 resource "RESOURCE_TYPE" "RESOURCE_NAME" {
     ...
 }
 
-output pet-name {
+output "OUTPUT_NAME" {
     value = RESOURCE_TYPE.RESOURCE_NAME.ATTRIBUTE
     description = "DESCRIPTION"
 }
 ```
 > [!TIP]
-> * Commands like these can also use commands
+> * Commands like these can also be used to print output on screen
 >     - `terraform output`
 >     - `terraform output VARIABLE_NAME`
+> * Sensitive output variables can be seen using these commands
+
+> [!NOTE]
+> #### EXAMPLES
+>
+> * For checking that a variable that we are defining is starting with `ami-` or not
+> ```tcl
+> variable "ami_name" {
+>     default = "SOME_NAME"
+>     type = string
+>     validation {
+>         condition = substr(var.ami_name, 0, 4) == "ami-"
+>         error_message = "This variable must start with 'ami-'"
+>           }
+> }
+> ```
+> * For checking if a number is not exceeding a range
+> ```tcl
+> variable "VARIABLE_NAME" {
+>     default = VALUE
+>     type = number
+>     validation {
+>         condition = var.VARIABLE_NAME >= var.SMALL_NUMBER && var.VARIABLE_NAME < var.LARGE_NUMBER
+>         error_message = "This number must be in a range \[ ${var.lesser_number} , ${var.greater_number} )"
+>     }
+>           }
+> ```
 
 ## TERRAFORM STATE
 * State file is a json data structure that contains the that maps real world infrastructure resources to resource definitions in the config file
@@ -913,111 +949,6 @@ root_proj_dir
 
 
 
-
-* Terraform considers any file with `.tf` config as terraform in the project directory
-
-## TERRAFORM PROVIDERS
-* Official, partnered, community providers
-* Provider full names follow the convention `HOSTNAME/ORGANIZATIONAL_NAMESPACE/PLUGIN_NAME: version = "~> VERSION"`, where the `HOST_NAME` is the hostname of the plugin
-
-* Use specific version of the plugins
-```tcl
-terraform {
-    required_providers {
-        PROVIDER_NAME = {
-            source = "SOURCE"
-            version = "VERSION"
-        }
-    }
-}
-```
-* `~> x.x.x` means any version less than `x.x+1.0` and greater than or equal to `x.x.x`
-
-* Some times in the script we need to work with multi ple regions in aws
-* We can create multiple aws providers of aws type with different regions and call them according to usage
-```tcl
-provider "aws" {
-    region = "us-east-1"
-    alias = "aws_us"
-}
-
-provider "aws" {
-    region = "ap-south-1"
-    alias = "aws_mumbai"
-}
-
-# CREATE EC2 IN US
-resource "aws_instance" "testing_nfs" {
-    ami = "AMI"
-    instance_type = "INSTANCE_TYPE"
-    provider = aws.aws_us #PROVIDER FORMAT IS "PROVIDER_NAME.ALIAS_NAME"
-}
-
-# CREATE EC2 IN MUMBAI
-resource "aws_instance" "testing_nfs" {
-    ami = "AMI"
-    instance_type = "INSTANCE_TYPE"
-    provider = aws.aws_mumbai #PROVIDER FORMAT IS "PROVIDER_NAME.ALIAS_NAME"
-}
-```
-
-## VARIABLES
-* If we do not provide any default value to a variable or override it programatically, it prompts while creating resource
-* Variables format
-```tcl
-variable "VARIABLE_NAME" {
-    default = VALUE
-    description = "DESCRIPTION"
-    type = TYPE
-    sensitive = SENSITIVITY
-    validation {
-        condition = CONDITION
-        error_message = "ERROR_MESSAGE"
-    }
-}
-```
-* `default` parameter contains the default/value of the variable
-* `description` is just a description
-* `type` is the type of data we are storing
-* `sensitive` to define the sensitivity of the data, this decides wheather this variable is visible or not in the terraform state file
-    - If `true`: not visible in the state file
-    - If `false`: visible in the state file
-* `validation is to make sure that the variable is following a convention or have a right value and many more`
-* Even the output resource is not able to print the sensitive info/variable, but at the same time, we have a sensitive clause for output resource too which is just to avoid any mishaps
-```tcl
-output "OUTPUT_NAME" {
-    value = var.SECRET_VARIABLE_NAME
-    sensitive = true
-}
-```
-* We can securely access sensitive variables by using
-```bash
-terraform output SECRET_VARIABLE_NAME
-```
-
-### Examples:
-* For checking that a variable that we are defining is starting with `ami-` or not
-```tcl
-variable "ami_name" {
-    default = "SOME_NAME"
-    type = string
-    validation {
-        condition = substr(var.ami_name, 0, 4) == "ami-"
-        error_message = "This variable must start with 'ami-'"
-          }
-}
-```
-* For checking if a number is not exceeding a range
-```tcl
-variable "just_a_number" {
-    default = 123
-    type = number
-    validation {
-        condition = var.just_a_number >= var.lesser_number && var.just_a_number < var.greater_number
-        error_message = "This number must be in a range \[ ${var.lesser_number} , ${var.greater_number} )"
-    }
-          }
-```
 
 #### CREATING KEY PAIRS and USING IN EC2
 ```tcl
