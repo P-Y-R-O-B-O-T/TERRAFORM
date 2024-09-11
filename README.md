@@ -317,7 +317,7 @@ output pet-name {
 
 ### LIFECYCLE
 * Normally resourecs are destroyed before creating but this can be altered by using `create_before_destroy` parameter for resource in the lifecycle parameter
-* If we do not want any resource to never get destroyed we can use `prevent_destroy`, usable for databases, note that `terraform destroy` command will destroy the resource
+* If we do not want any resource to never get destroyed it can be prevented using `prevent_destroy`, usable for databases, note that `terraform destroy` command will destroy the resource
 * When there is no need to consider the changes in the tags attribute we must `ignore_changes` and similarly in any other attributes like ami or subnet or file content and many more or use all to ignore all attributes
 ```tcl
 resource "RESOURCE_TYPE" "RESOURCE_NAME" {
@@ -341,13 +341,9 @@ resource "RESOURCE_TYPE" "RESOURCE_NAME" {
 ### DATASOURCES
 * To use data from outside world in terraform
 * See terraform registry for more details on the attributes for the data block
-```
-resource "local_file" "dog" {
-    filename = "/root/pet.txt"
-    content = data.local_file.dog.content
-}
-data "local_file" "dog" {
-    filename = "/root/dog.txt"
+```hcl
+data "aws_key_pair" "KEY_PAIR_RESOURCE_NAME" {
+    key_name = "KEY_NAME_IN_AWS"
 }
 ```
 * Data sources only read from and to the infrastructure and its resources, it does not modify
