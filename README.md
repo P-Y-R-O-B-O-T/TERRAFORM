@@ -301,39 +301,43 @@ output pet-name {
 > * Never change terraform state file manually, instead use terraform commands
 
 ## WORKING WITH TERRAFORM
-* `terraform validate` to check syntax errors
-* `terraform fmt` to format the file in required standard format
-* `terraform show` to see current infrastructure as seen by terraform
-* `terraform providers` to see all installed providers
-* `terraform providers mirror /path/to/mirror/the/providers`
-* `terraform refresh` to refresh terraform to real world infrastructure if any manual change made
-* `terraform graph` to get dependency graph, we can put the o/p in graph visualiser
+| COMMAND | EFFECT |
+| ------- | ------ |
+| `terraform validate` | Check syntax errors |
+| `terraform fmt` | Format the file in required standard format |
+| `terraform show` | See current infrastructure as seen by terraform |
+| `terraform providers` | See all installed providers |
+| `terraform providers mirror /path/to/mirror/the/providers` | Mirror providers |
+| `terraform refresh` | Refresh terraform to real world infrastructure if any manual change made |
+| `terraform graph` | Get dependency graph, we can put the o/p in graph visualiser |
 
-### MUTABLE VS IMMUTABLE INFRASTRUCTURE
-* Terraform uses immutable way of managing resources
+> [!IMPORTANT]
+> ### MUTABLE VS IMMUTABLE INFRASTRUCTURE
+> * Terraform uses immutable way of managing resources
 
 ### LIFECYCLE
 * Normally resourecs are destroyed before creating but this can be altered by using `create_before_destroy` parameter for resource in the lifecycle parameter
 * If we do not want any resource to never get destroyed we can use `prevent_destroy`, usable for databases, note that `terraform destroy` command will destroy the resource
 * When there is no need to consider the changes in the tags attribute we must `ignore_changes` and similarly in any other attributes like ami or subnet or file content and many more or use all to ignore all attributes
-```
-resource "local_file" "key_details" {
-    content  = tls_private_key.pvtkey.private_key_pem
-    filename = "/root/key.txt"
-
+```tcl
+resource "RESOURCE_TYPE" "RESOURCE_NAME" {
+    ...
     tags = {
-        name = "huhu"
+        TAG1 = "VALUE1"
+        TAG2 = "VALUE2"
     }
 
     lifecycle {
         create_before_destroy = true
         ignore_changes = [
-            tags
+            PARAMETER1
+            PARAMETER2
+            ...
         ]
-
     }
 }
 ```
+
 ### DATASOURCES
 * To use data from outside world in terraform
 * See terraform registry for more details on the attributes for the data block
