@@ -223,7 +223,7 @@ resource local_file "qwe" {
     filename = "/qwe/asd.txt"
     content = var.VARIABLE_NAME["KEY1"]
 }
-
+```
 * We can also use variable like below
     - In this case we can export variables in shell `export TF_VAR_VARNAME="VALUE"` and then run the apply or plan command
     - Or we can give variables in run time `terraform apply -var "var1=val1" -var "var2=val2"`
