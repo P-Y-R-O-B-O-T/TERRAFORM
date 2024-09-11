@@ -75,9 +75,13 @@ BLOCK_TYPE "RESOURCE_TYPE" "RESOURCE_NAME" {
 * If we change config and use a new provider that is not installed, the `terraform apply` command won't work as the provider is not installed, we first need to install it using `terraform init`
 
 > [!NOTE]
+> #### PROVIDER VERSIONS
+> * Sometimes there is need of a specific version of a provider
+> * See more for specific versions of providers in the use provider section
+> * Use provider versions like `"> 1.2.0, 2.0.0, !=1.4.0, ~> 1.3.0"` to get a specific range of the version of the provider
+>
 > * Provider full names follow the convention `HOSTNAME/ORGANIZATIONAL_NAMESPACE/PLUGIN_NAME: version = "~> VERSION"`, where the `HOST_NAME` is the hostname of the plugin 
-
-> [!NOTE]
+>
 > #### USE SPECIFIC VERSION OF THE PLUGINS
 > ```tcl
 > terraform {
@@ -351,90 +355,59 @@ data "aws_key_pair" "KEY_PAIR_RESOURCE_NAME" {
 ### META ARGUMENTS
 * We have altready seen two meta arguments `depends_on` and `lifecycle`
 * Now for the loop and iteration types `count` and `for each`
+
 #### COUNT
 * Creates multiple resources and now the resource block is not considered as a single resource but a list of resources that can be accessed using the `[]` method to assess the elements
-```
+```tcl
 # main.tf
-resource "local_file" "qwe" {
-    filename = var.filename[count.index]
+resource "RESOURCE_TYPE" "RESOURCE_NAME" {
+    PARAMETER = var.VARIABLE_NAME[count.index]
     count = 3
 }
 
-variables.tf
-variable "filename" {
-    default = "/root/qwe.txt"
+# variables.tf
+variable "VARIABLE_NAME" {
+    default = "VALUE"
 }
 ```
-* But since we have only defined the parameter `count` it creates the same file 3 tines, but not 3 different files so we change the filename varibale block as
-```
+```tcl
 # main.tf
-resource "local_file" "qwe" {
-    filename = var.filename[count.index]
-    count = 3
+resource "RESOURCE_NAME" "RESOURCE_NAME" {
+    filename = var.VARIABLE_NAME[count.index]
+    count = length(var.VARIABLE_NAME)
 }
 
 variables.tf
-variable "filename" {
+variable "VARIABLE_NAME" {
     default = [
-        "/root/qwe.txt"
-        "/root/qwe2.txt"
-        "/root/qwe3.txt"
+        "VAL1"
+        "VAL2"
+        "VAL3"
     ]
 }
 ```
-* Still we have a problem, if we change the number of elements in the varible block `filename` it gives error, to solve we do this
-```
-# main.tf
-resource "local_file" "qwe" {
-    filename = var.filename[count.index]
-    count = length(var.filename)
-}
 
-variables.tf
-variable "filename" {
-    default = [
-        "/root/qwe.txt"
-        "/root/qwe2.txt"
-        "/root/qwe3.txt"
-    ]
-}
-```
-* NOTE: When we change the length of the variable or the number of files in the list, all the resources gets removed and changed, to solve this issue, we use the for_each parameter/argument
+> [!CAUTION]
+> * When there is a need to change the length of the variable or the number of files in the list, all the resources gets removed and changed, to solve this issue, we use the `for_each` argument
 
 #### FOR EACH
 * It only works with map and set
 * The resources are created and seen as a map and not a list
-```
+```tcl
 # main.tf
-resource "local_file" "pet" {
-    filename = each.value
-    for_each = var.filename
+resource "RESOURCE_TYPE" "RESOURCE_NAME" {
+    PARAMETER = each.value
+    for_each = var.VARIABLE_NAME
 }
 
 # variables.tf
-variable "filename" {
+variable "VARIABLE_NAME" {
     type = set(string)
     default = [
-        "/root/qwe.txt"
-        "/root/qwe2.txt"
-        "/root/qwe3.txt"
+        "VAL1"
+        "VAL2"
+        "VAL3"
     ]
-}
-```
-
-#### VERSION CONSTRAINTS
-* Sometimes we need a specific version of a provider
-* See more for specific versions of providers in the use provider section
-* We can use `"> 1.2.0, 2.0.0, !=1.4.0, ~> 1.3.0"` to get a specific range of the version of the provider
-```
-# main.tf
-terraform {
-    required_providers {
-        local = {
-            source = "hashocorp/local"
-            version = "1.4.0"
-        }
-    }
 }
 ```
 
@@ -688,182 +661,142 @@ provider "aws" {
 
 ## REMOTE STATE
 * Statelocking to prevent the corruption of state file
-### REMOTE BACKEND WITH S3 AND DYNAMODB
-* S3 for storing the state file and dynamodb for locking the state
-```
-# terraform.tf
-terraform {
-    backend "s3" { # TO USE S3 AS BACKEND
-        bucket = "BUCKET_NAME"
-        key = "PATH_TO_STATE_FILE_IN_S3_BUCKET"
-        region = "us-west-1"
-        dynamodb = "state-locking" # THE TABLE MUST HAVE A PRIMARY KEY AS LockID
-    }
-}
 
-# main.tf
-CREATE RESOURCES AS USUAL
-resource "RESOURCE_TYPE" "RESOURCE_NAME" {
-    ...
-}
-```
-### STATE COMMANDS
-* `terraform state list` list all the resources
-* `terraform state show RESOURCE` print info of resource, `RESOURCE` taken by `list` command
-* `terraform state mv RESOURCE_TYPE.RESOURCE_NAME RESOURCE_TYPE.NEW_RESOURCE_NAME` renames the resource
-* `terraform state pull` to see the remote state file
-* `terraform state rm RESOURCE_TYPE.RESOURCE_NAME` removes a resource, but remove it from the config file manually too
+> [!TIP]
+> ### REMOTE BACKEND WITH S3 AND DYNAMODB
+> * S3 for storing the state file and dynamodb for locking the state
+> ```tcl
+> # terraform.tf
+> terraform {
+>     backend "s3" { # TO USE S3 AS BACKEND
+>         bucket = "BUCKET_NAME"
+>         key = "PATH_TO_STATE_FILE_IN_S3_BUCKET"
+>         region = "REGION"
+>         dynamodb = "DYNAMODB_NAME" # THE TABLE MUST HAVE A PRIMARY KEY AS LockID
+>     }
+> }
+>
+> # main.tf
+> CREATE RESOURCES AS USUAL
+> resource "RESOURCE_TYPE" "RESOURCE_NAME" {
+>     ...
+> }
+> ```
+
+## STATE COMMANDS
+| COMMAND | EFFECT |
+| `terraform state list` | List all the resources |
+| `terraform state show RESOURCE` | Print info of resource, `RESOURCE` taken by `list` command |
+| `terraform state mv RESOURCE_TYPE.RESOURCE_NAME RESOURCE_TYPE.NEW_RESOURCE_NAME` | Renames the resource |
+| `terraform state pull` | To see the remote state file |
+| `terraform state rm RESOURCE_TYPE.RESOURCE_NAME` | Removes a resource, but remove it from the config file manually too |
 
 ## TAINT
 * Sometimes terraform apply fails due to wrong path or command in provisioner sub block or attribute
 * Tainted resources are entirely recreated
 * Terraform marks those resources as tainted and then they are re created when next apply command is run
-* When we have to make change to a resource we may recreate a resource by running terraform apply command but the better way is to taint the resource to upgrade or make required changes using `terraform taint RESOURCE_TYPE.RESOURCE_NAME`
+* When required to make change to a resource we may recreate a resource by running terraform apply command but the better way is to taint the resource to upgrade or make required changes using `terraform taint RESOURCE_TYPE.RESOURCE_NAME`
 * To untain the resource run `terraform untaint RESOURCE_TYPE.RESOURCE_NAME`
 
 ## DEBUG
 * Terraform have a lot of debug levels: `INFO`, `WARNING`, `ERROR`, `DEBUG` and `TRACE`
 * To use debugging use: `export TF_LOG=DEBUG_LEVEL`
 
-## IMPORT
-* Import externally managed or created resources
-* terraform import RESOURCE_TYPE.RESOURCE_NAME RESOURCE_ID_ON_CLOUD_CONSOLE
-    - example: `terraform import aws_instance.web i-12321434242344`
-* This will give an error and also it will give a code, paste that in the `main.tf`
-```
-resource "aws_instance" "web" {
-    # (resource arguments)
-}
-```
-* Then again run the same command above, this time , no error reported and also theresource is imported
-* Now we can examine `terraform.tfstate` and then change the resource block in the `main.tf`
-* Now the resource block is in control of terraform
-
 ## MODULE
-* A configuration directory containing .tf files is a module in itself
-```
-root_proj_dir
-    dir1
-        main.tf
-        variables.tf
-    dir2
-        main.tf
-        variables.tf
-```
-* If we use the following lines in following files
-```
-# root_proj_dir/dir2/main.tf
-module "huhu" {
-    source = "../dir1" # path/to/another/config/directory
+* A configuration directory containing `.tf` files is a module in itself
+> [!IMPORTANT]
+> ### EXAMPLE
+> ```tcl
+> root_proj_dir
+>     modules
+>         payroll_app
+>             app_server.tf
+>             s3_bucket.tf
+>             dynamodb_table.tf
+>             variables.tf
+>     us_server
+>         main.tf 
+>     uk_server
+>         main.tf
+>
+> # root_proj_dir/modules/payroll_app/app_server.tf
+> resource "aws_instance" "app_server" {
+>     ami = var.ami
+>     instance_type = "t2.medium"
+>     tags = {
+>         Name = "${var.app_region}-app-server"
+>     }
+>     depends_on = [
+>                     aws_dynamodb_table.payroll_db
+>                     aws_s3_bucket.payroll_data
+>                 ]
+>
+> # root_proj_dir/modules/payroll_app/s3_bucket.tf
+> resource "aws_s3_bucket" "payroll_data" {
+>     bucket = "${var.app_region}-${var.bucket}"
+> }
+>
+> # root_proj_dir/modules/payroll_app/dynamodb_table.tf
+> resource "aws_dynamodb_table" "payroll_db" {
+>     name = "user_data"
+>     billing_mode = "PAY_PER_REQUEST"
+>     hash_key = "EmployeeID"
+>
+>     attributes = {
+>         name = "EmployeeID"
+>         type = "N"
+>     }
+> }
+>
+> # root_proj_dir/modules/payroll_app/variables.tf
+> variable "app_region" {
+>     type = string
+> }
+> variable "bucket" {
+>     default = "flexit-payroll-alpha-22001c"
+> }
+> variable "ami" {
+>     type = string
+> }
+>
+> # root_proj_dir/us_server/main.tf
+> module "us_payroll" {
+>     source = "../modules/payroll_app"
+>     app_region = "us-east-1" # PASSING VARIABLES TO MODULE VARIABLES
+>     ami = "ami-12314234243"
+> }
+>
+> resource "aws_instance" "showpiece_ec2" {
+>     ami = "ami-123131131231"
+>     instance_type = "t2.micro"
+>     depends_on = [
+>                     module.us_payroll.aws_instance.app_server
+>                 ]
+> }
+>
+> # root_proj_dir/us_server/provider.tf
+> provider "aws" {
+>     region = "us-east-1"
+> }
+> ```
 
-}
-
-# root_proj_dir/dir1/main.tf
-resource "aws_instance" "webserver" {
-    ami = var.ami
-    instance_type = "t2.micro"
-    key_name = var.key
-}
-
-# root_proj_dir/dir1/variables.tf
-variable ami {
-    type = string
-    default = "ami-3453452342"
-}
-```
-* `dir2` becomes the root module and `dir1` becomes the child module or imported module
-
-* Another example:
-```tcl
-root_proj_dir
-    modules
-        payroll_app
-            app_server.tf
-            s3_bucket.tf
-            dynamodb_table.tf
-            variables.tf
-    us_server
-        main.tf 
-    uk_server
-        main.tf
-
-# root_proj_dir/modules/payroll_app/app_server.tf
-resource "aws_instance" "app_server" {
-    ami = var.ami
-    instance_type = "t2.medium"
-    tags = {
-        Name = "${var.app_region}-app-server"
-    }
-    depends_on = [
-                    aws_dynamodb_table.payroll_db
-                    aws_s3_bucket.payroll_data
-                ]
-
-# root_proj_dir/modules/payroll_app/s3_bucket.tf
-resource "aws_s3_bucket" "payroll_data" {
-    bucket = "${var.app_region}-${var.bucket}"
-}
-
-# root_proj_dir/modules/payroll_app/dynamodb_table.tf
-resource "aws_dynamodb_table" "payroll_db" {
-    name = "user_data"
-    billing_mode = "PAY_PER_REQUEST"
-    hash_key = "EmployeeID"
-
-    attributes = {
-        name = "EmployeeID"
-        type = "N"
-    }
-}
-
-# root_proj_dir/modules/payroll_app/variables.tf
-variable "app_region" {
-    type = string
-}
-variable "bucket" {
-    default = "flexit-payroll-alpha-22001c"
-}
-variable "ami" {
-    type = string
-}
-
-# root_proj_dir/us_server/main.tf
-module "us_payroll" {
-    source = "../modules/payroll_app"
-    app_region = "us-east-1" # PASSING VARIABLES TO MODULE VARIABLES
-    ami = "ami-12314234243"
-}
-
-resource "aws_instance" "showpiece_ec2" {
-    ami = "ami-123131131231"
-    instance_type = "t2.micro"
-    depends_on = [
-                    module.us_payroll.aws_instance.app_server
-                ]
-}
-
-# root_proj_dir/us_server/provider.tf
-provider "aws" {
-    region = "us-east-1"
-}
-```
-
-### MODULES FROM TERRAFORM REGISTRY
-* Search terraform registry for usage and availability
-* Install terraform module using `terraform get`, but make sure that it has been used by the configuration files
-* Using the `terraform-aws-modules/security-group/aws/modules/ssh`
-```tcl
-# main.tf
-module "sec_grp_ssh" {
-    source = "terraform-aws-modules/security-group/aws/modules/ssh"
-    version = "3.16.0"
-    vpc_id = "vpc-1231243"
-    ingress_cidr_blocks = [
-                            "10.10.0.0/16"
-                        ]
-    name = "ssh-access"
-}
-```
+> [!TIP]
+> ### MODULES FROM TERRAFORM REGISTRY
+> * Search terraform registry for usage and availability
+> * Install terraform module using `terraform get`, but make sure that it has been used by the configuration files
+> * Using the `terraform-aws-modules/security-group/aws/modules/ssh`
+> ```tcl
+> # main.tf
+> module "sec_grp_ssh" {
+>     source = "terraform-aws-modules/security-group/aws/modules/ssh"
+>     version = "3.16.0"
+>     vpc_id = "vpc-1231243"
+>     ingress_cidr_blocks = [
+>                             "10.10.0.0/16"
+>                         ]
+>     name = "ssh-access"
+> }
+> ```
 
 ## TERRAFORM FUNCTIONS
 * We have already seen some functions like `file('PATH')` and `toset(var.VARIABLE_NAME)` and `len(var.VARIABLE_NAME)`
@@ -880,22 +813,26 @@ variable "huh" {
 > max(var.huh...) # THESE THREE DODS ARE EXPANSION SYNTAX
 ```
 * `ceil(10.12)` and `floor(1.33)`
+
 ### STRING FUNCTIONS
 * `split(',', 'uhhu,uhu,df,vdh,df,df')`
 * `upper('skjdhvljhd')`
 * `lower('JHBHBvihvibDFF')`
 * `substr('skjdbbvjbsjlv', START_OFFSET, TOTAL_CHARACTERS)`
 * `join(',', ['sdfsd','hfghf','wrew','bvc','yi'])`
+
 ### COLLECTION FUNCTIONS
 * `len(var.VARIABLE_NAME)`
 * `index(var.VARIABLE_NAME, TO_FIND)`
 * `element(var.VARIABLE_NAME, INDEX)`
 * `contains(var.VARIABLE_NAME, TO_FIND)`
+
 ### MAP FUNCTIONS
 * `keys(var.VARIABLE_NAME)`
 * `values(var.VARIABLE_NAME)`
 * `lookup(var.VARIABLE_NAME, KEY)`
 * `lookup(var.VARIABLE_NAME, KEY, DEFAULT_VALUE)`
+
 ### CONDITIONAL STATEMENTS
 * Almost same as python but some anomalies are there
 * `&&` and, `||` or, `!` not
@@ -927,44 +864,55 @@ root_proj_dir
     main.tf
     variables.tf
 ```
-* To init or create a new workspace we use `terraform workspce new WORKSPACE_NAME`
-* To list existing workspaces `terraform workspace list`
-* To switch to a workspae `terraform workspace select WORKSPACE_NAME`
-```tcl
-# variables.tf
-variable region {
-    default = "us-east-1"
-}
-variable instance_type {
-    default = "t2.micro"
-}
-variable ami {
-    type = map
-    default = {
-        "p1" = "ami-12324"
-        "p2" = "ami-45656"
-    }
-}
+| COMMAND | EFFECT |
+| ------- | ------ |
+| `terraform workspce new WORKSPACE_NAME` | Create workspace |
+| `terraform workspace list` | List workspaces |
+| `terraform workspace select WORKSPACE_NAME` | Select workspaces |
 
-# main.tf
-resource "aws_instance" "huhu" {
-    ami = lookup(var.ami, terraform.workspace)
-    instance_type = var.instance_type
-    tags = {
-        name = terraform.workspace
-    }
-}
+> [!IMPORTANT]
+> ### EXAMPLE
+> ```tcl
+> # variables.tf
+> variable region {
+>     default = "us-east-1"
+> }
+> variable instance_type {
+>     default = "t2.micro"
+> }
+> variable ami {
+>     type = map
+>     default = {
+>         "production" = "ami-12324"
+>         "testing" = "ami-45656"
+>     }
+> }
+>
+> # main.tf
+> resource "aws_instance" "huhu" {
+>     ami = lookup(var.ami, terraform.workspace)
+>     instance_type = var.instance_type
+>     tags = {
+>         name = terraform.workspace
+>     }
+> }
+>
+> $ > terraform apply
+> ```
 
-$ > terraform apply
-```
-* Now here is a catch, we do not hacce any terraform.tfstate file in the main directory, now we have a new subdirectory structure where all the state files are stored named `terraform.tfstate.d`
-```
-terraform.tfstate.d
-    WORKSPACE1
-        terraform.tfstate
-    WORKSPACE2
-        terraform.tfstate
-```
+> [!TIP]
+> * Now here is a catch, we do not have any terraform.tfstate file in the main directory, now we have a new subdirectory structure where all the state files are stored named `terraform.tfstate.d`
+>
+> ```
+> terraform.tfstate.d
+>     WORKSPACE1
+>         terraform.tfstate
+>     WORKSPACE2
+>         terraform.tfstate
+> ```
+
+
+
 
 * Terraform considers any file with `.tf` config as terraform in the project directory
 
