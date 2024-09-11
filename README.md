@@ -74,57 +74,129 @@ BLOCK_TYPE "RESOURCE_TYPE" "RESOURCE_NAME" {
 * Providers are downloaded as hidden directory in the configuration directory
 * If we change config and use a new provider that is not installed, the `terraform apply` command won't work as the provider is not installed, we first need to install it using `terraform init`
 
+> [!NOTE]
+> * Provider full names follow the convention `HOSTNAME/ORGANIZATIONAL_NAMESPACE/PLUGIN_NAME: version = "~> VERSION"`, where the `HOST_NAME` is the hostname of the plugin 
+
+> [!NOTE]
+> #### USE SPECIFIC VERSION OF THE PLUGINS
+> ```tcl
+> terraform {
+>     required_providers {
+>         PROVIDER_NAME = {
+>             source = "SOURCE"
+>             version = "VERSION"
+>         }
+>     }
+> }
+> ```
+> * `~> x.x.x` means any version less than `x.x+1.0` and greater than or equal to `x.x.x`
+
+> [!TIP]
+> #### MULTI REGION PROVIDERS
+> * Some times in the script we need to work with multiple regions in aws
+> * Multiple AWS providers of `aws` type with different regions can be created and called them according to usage
+> ```tcl
+> provider "aws" {
+>     region = "us-east-1"
+>     alias = "aws_us"
+> }
+>
+> provider "aws" {
+>     region = "ap-south-1"
+>     alias = "aws_mumbai"
+> }
+>
+> # CREATE EC2 IN US
+> resource "aws_instance" "testing_nfs" {
+>     ami = "AMI"
+>     instance_type = "INSTANCE_TYPE"
+>     provider = aws.aws_us #PROVIDER FORMAT IS "PROVIDER_NAME.ALIAS_NAME"
+> }
+>
+> # CREATE EC2 IN MUMBAI
+> resource "aws_instance" "testing_nfs" {
+>     ami = "AMI"
+>     instance_type = "INSTANCE_TYPE"
+>     provider = aws.aws_mumbai #PROVIDER FORMAT IS "PROVIDER_NAME.ALIAS_NAME"
+> }
+> ```
+
 ### CONFIGURATION DIRECTORY
 * Resources can be defined by multiple files but all resources should be in the `main.tf` file
 * There are other files too for their own purposes, named: `variables.tf`, `outputs.tf`, `providers.tf` etc
 
 ### VARIABLES FILE
 * Store dynamic variables for configurations
+* If we do not provide any default value to a variable or override it programatically, it prompts while creating resource
+
+> [!IMPORTANT]
+> ```tcl
+> variable "VARIABLE_NAME" {
+>     default = VALUE
+>     description = "DESCRIPTION"
+>     type = TYPE
+>     sensitive = SENSITIVITY
+>     validation {
+>         condition = CONDITION
+>         error_message = "ERROR_MESSAGE"
+>     }
+> }
+> ```
+> * `default` parameter contains the default/value of the variable
+> * `description` is just a description
+> * `type` is the type of data we are storing
+> * `sensitive` to define the sensitivity of the data, this decides wheather this variable is visible or not in the terraform state file
+>     - If `true`: not visible in the state file
+>     - If `false`: visible in the state file
+> * `validation is to make sure that the variable is following a convention or have a right value and many more`
+> * Even the output resource is not able to print the sensitive info/variable, but at the same time, we have a sensitive clause for output resource too which is just to avoid any mishaps
+
 * Variable block has 3 properties, available types are : `bool`, `string`, `number`, `list`, `map`, `object`, `tuple` and `any` 
 ```tcl
 # variables.tf
-variable "NAME" {
+variable "VARIABLE_NAME" {
     default = 2
     type = number
-    description = "HUHU HUHU"
+    description = "DESCRIPTION"
 }
 
-variable "zzz" {
+variable "VARIABLE_NAME" {
     default = true
     type = bool
 }
 
-variable "zzzz" {
-    default = "HUHU"
+variable "VARIABLE_NAME" {
+    default = "DESCRIPTION"
     type = string
 }
 
-variable "zzzzz" {
+variable "VARIABLE_NAME" {
     default = 9
     type = number
 }
 
-variable "zzzzzzz" {
-    default = ["hu", "huhu", "huhuhu", "huhuhuhu", "123"]
+variable "VARIABLE_NAME" {
+    default = ["STR1", "STR2", "STR3", "STR4", "STR5"]
     type = list(string)
 }
 
-variable "zzzzzzzz" {
+variable "VARIABLE_NAME" {
     default = {
-        "key1" = "val1"
-        "key2" = "val2"
+        "KEY1" = "VAL1"
+        "KEY2" = 12
     }
+    type = map
 }
 
-variable "zzzzzzzzz" {
+variable "VARIABLE_NAME" {
     default = {
-        "key1" = 23
-        "key2" = 0
+        "KEY1" = 23
+        "KEY2" = 0
     }
     type = map(number)
 }
 
-variable "zzzzzzzzzz" {
+variable "VARIABLE_NAME" {
     type = object({
         name = string
         color = string
@@ -133,23 +205,23 @@ variable "zzzzzzzzzz" {
         healthy = bool
     })
     default = {
-        name = "ballu"
+        name = "NAME"
         color = string
         age = 123
-        food = ["omlet", "mirch masala murg"]
+        food = ["FOOD1", "FOOD2"]
         healthy = true
     }
 }
 
-variable "zzzzzzzzzzz" {
-    default = [1, true, "qwe"]
+variable "VARIABLE_NAME" {
+    default = [1, true, "STRING"]
     type = tuple([number, bool, string])
 }
 
 # main.tf
 resource local_file "qwe" {
     filename = "/qwe/asd.txt"
-    content = var.zzzzzzzz["key1"]
+    content = var.VARIABLE_NAME["KEY1"]
 }
 ```
 ```tcl
@@ -185,7 +257,7 @@ resource "random_pet" "my-pet" {
     length = var.length
 }
 ```
-* We can also leav a variable like below
+* We can also use variable like below
     - In this case we can export variables in shell `export TF_VAR_VARNAME="VALUE"` and then run the apply or plan command
     - Or we can give variables in run time `terraform apply -var "var1=val1" -var "var2=val2"`
 ```tcl
@@ -206,19 +278,6 @@ seperator = "."
 
 * **Variable Precedence:** `main.tf > -var or -var-file > *.auto.tfvars (alphabetical order) > terraform.tfvars > environment variables`
 
-#### USING OUTPUT OF ONE VARIABLE IN ANOTHER
-```tcl
-resource "local_file" "zzz" {
-    filename = var.filename
-    content = "HUHU ${random_pet.zzzz.id}"
-}
-
-resource "random_pet" "zzzz" {
-    prefix = var.prefix
-    seperator = var.seperator
-    length = var.length
-}
-```
 > [!NOTE]
 > We can use `terraform show` to get variable states and properties
 
@@ -226,7 +285,7 @@ resource "random_pet" "zzzz" {
 * If output of one variable `A` is required by another variable `B` then `B` is dependent on `A`
 * While creating a resource, terraform creates `A` forst then `B`, but deletes in reverse order. This is called inplicit dependency
 * But we can also specify external dependency
-```
+```tcl
 resource "local_file" "pet" {
     filename = "/qwe/asd"
     content = "huhu"
