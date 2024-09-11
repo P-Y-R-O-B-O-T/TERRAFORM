@@ -721,6 +721,7 @@ provider "aws" {
 
 ## STATE COMMANDS
 | COMMAND | EFFECT |
+| ------- | ------ |
 | `terraform state list` | List all the resources |
 | `terraform state show RESOURCE` | Print info of resource, `RESOURCE` taken by `list` command |
 | `terraform state mv RESOURCE_TYPE.RESOURCE_NAME RESOURCE_TYPE.NEW_RESOURCE_NAME` | Renames the resource |
