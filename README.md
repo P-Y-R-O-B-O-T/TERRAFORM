@@ -223,40 +223,7 @@ resource local_file "qwe" {
     filename = "/qwe/asd.txt"
     content = var.VARIABLE_NAME["KEY1"]
 }
-```
-```tcl
-# variables.tf
-variable "filename" {
-    default = "/root/pets.txt"
-}
 
-variable "content" {
-    defult = "HUHU"
-}
-
-variable "prefix" {
-    default = "Mr"
-}
-
-variable "seperator" {
-    default = "."
-}
-
-variable "length" {
-    default = "2"
-}
-
-# main.tf
-resource "local_file" "pet" {
-    filename = var.filename
-    caontent = var.content
-}
-resource "random_pet" "my-pet" {
-    prefix = var.prefix
-    seperator = var.seperator
-    length = var.length
-}
-```
 * We can also use variable like below
     - In this case we can export variables in shell `export TF_VAR_VARNAME="VALUE"` and then run the apply or plan command
     - Or we can give variables in run time `terraform apply -var "var1=val1" -var "var2=val2"`
