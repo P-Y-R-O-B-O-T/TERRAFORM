@@ -52,31 +52,19 @@ BLOCK_TYPE "RESOURCE_TYPE" "RESOURCE_NAME" {
 >     content = "HUH"
 > }
 > ```
-```tcl
-EXAMPLE: CREATING A EC2 INSTANCE
 
-resource "aws_instance" "webserver" {
-    ami = "AMI_ID"
-    instance_type = "t2.micro"
-}
-```
-```tcl
-EAMPLE: CREATING AWS S3 BUCKET
+### TERRAFORM WORKFLOW
 
-resource "aws_s3_bucket" "data" {
-    bucket = "BUCKET_NAME"
-    acl = "private" # access control list for the bucket
-}
-```
-* Terraform workflow has 4 steps:
-    - Write configuration
-    - Run `terraform init`: installs plugins
-    - Review using terraform using `terraform plan`: see execution plan made by terraform
-    - Apply changes using `terraform apply`: apply the execution plan
+| COMMAND | EFFECT |
+| ------- | ------ |
+| `terraform init` | Installs plugins and initializes different backends |
+| `terraform plan` | See execution plan made by terraform |
+| `terraform apply` | Apply the execution plan |
+| `terraform destroy` | Destroy all the infrastructure |
 
-#### UPDATE RESOURCE
-* Change the config and run `terraform plan` and then run `terraform apply`
-* To destroy the infrastructure we can run `terraform destroy`
+> [!TIP]
+> #### UPDATE RESOURCE
+> * Change the config and run `terraform plan` and then run `terraform apply`
 
 ## TERRAFORM BASICS
 * **PROVIDERS**
