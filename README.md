@@ -224,90 +224,81 @@ resource local_file "qwe" {
     content = var.VARIABLE_NAME["KEY1"]
 }
 ```
-* We can also use variable like below
-    - In this case we can export variables in shell `export TF_VAR_VARNAME="VALUE"` and then run the apply or plan command
-    - Or we can give variables in run time `terraform apply -var "var1=val1" -var "var2=val2"`
-```tcl
-variable "VARIABLE_NAME" {
-
-}
-```
-
-#### .tfvars and .tfvars.json FILE
-* We can define variables in a `.tfvars` file in following format
-```tcl
-var1 = "val1"
-var2 = "2"
-seperator = "."
-```
-* Then use command like `terraform apply -var-file variables.tfvars`
-* To make this file automatically loadable by terraform save it as `*.auto.tfvars` or `*.auto.tfvars.json`
-
-* **Variable Precedence:** `main.tf > -var or -var-file > *.auto.tfvars (alphabetical order) > terraform.tfvars > environment variables`
 
 > [!NOTE]
-> We can use `terraform show` to get variable states and properties
+> #### VARIABLES AS ENVIRONMENT VARIABLES
+> * In this case we can export variables in shell `export TF_VAR_VARNAME="VALUE"` and then run the apply or plan command
+> * Or we can give variables in run time `terraform apply -var "var1=val1" -var "var2=val2"`
+
+> [!NOTE]
+> #### .tfvars and .tfvars.json FILE
+> * We can define variables in a `.tfvars` file in following format
+> ```tcl
+> var1 = "val1"
+> var2 = "2"
+> seperator = "."
+> ```
+>
+> * Then use command like `terraform apply -var-file variables.tfvars`
+> * To make this file automatically loadable by terraform save it as `*.auto.tfvars` or `*.auto.tfvars.json`
+
+> [!IMPORTANT]
+> **Variable Precedence:** `main.tf > -var or -var-file > *.auto.tfvars (alphabetical order) > terraform.tfvars > environment variables`
+
+> [!NOTE]
+> Command `terraform show` to get variable states and properties
 
 ### RESOURCE DEPENDENCIES
 * If output of one variable `A` is required by another variable `B` then `B` is dependent on `A`
 * While creating a resource, terraform creates `A` forst then `B`, but deletes in reverse order. This is called inplicit dependency
-* But we can also specify external dependency
+* But dependency can also specify external dependency
 ```tcl
-resource "local_file" "pet" {
-    filename = "/qwe/asd"
-    content = "huhu"
+resource "RESOURCE_TYPE" "DEPENDENT_RESOURCE_NAME" {
+    ...
     depends_on = [random_pet.my-pet]
 }
 
-resource "random_pet" "my-pet" {
-    prefix = "Mr"
-    seperator = "."
-    length = var.length
-}
-```
-```
-# CREATE A TLS_PRIVATE_KEY AND STORE IN `terraform state` AND THEN SAVE IN A FILE
-resource "tls_private_key" "pvtkey" {
-    algorithm = "RSA"
-    rsa_bits  = 4096
-}
-
-resource "local_file" "key_details" {
-    content  = tls_private_key.pvtkey.private_key_pem
-    filename = "/root/key.txt"
+resource "RESOURCE_NAME" "RESOURCE_NAME" {
+    ...
 }
 ```
 
 ### OUTPUT VARIABLES
 * We can print variables on screen
 ```
-resource "random_pet" "my-pet" {
-    prefix = "Mr"
-    seperator = "."
-    length = "4"
+resource "RESOURCE_TYPE" "RESOURCE_NAME" {
+    ...
 }
 
 output pet-name {
-    value = random_pet.my-pet.id
-    description = "qwe"
+    value = RESOURCE_TYPE.RESOURCE_NAME.ATTRIBUTE
+    description = "DESCRIPTION"
 }
 ```
-* We can also use commands
-    - `terraform output`
-    - `terraform output VARIABLE_NAME`
+> [!TIP]
+> * Commands like these can also use commands
+>     - `terraform output`
+>     - `terraform output VARIABLE_NAME`
 
 ## TERRAFORM STATE
 * State file is a json data structure that contains the that maps real world infrastructure resources to resource definitions in the config file
-* We can see the state file by `cat terraform.tfstate`
+* The state file can be visualized by `cat terraform.tfstate`
 * Each resource in terraform has a id to identify the resources in the real world and it also helps in resolving resource dependencies
 * Terraform also helps in tracking metadata (helps in deleting resources)
-* Performance because of getting state from local system instead of fetching from cloud provider through network (elemination of slow process)
-* When we need a resource replacement we need it to be fast so we want terraform to refer to state file but not refresh it `terraform plan --refresh=False`
+
+> [!TIP]
+> #### PERFORMANCE
+> * Performance because of getting state from local system instead of fetching from cloud provider through network (elemination of slow process)
+> * When we need a resource replacement we need it to be fast so we want terraform to refer to state file but not refresh it `terraform plan --refresh=False`
+
 * It also helps in collaboration in a team
-* It is non optional
 * It contains sensitive info like ssh key pairs
-* Config file should be stored in a version control system but the state file should be stored in a backend system like s3 or a remote server
-* Never change terraform state file manually, instead use terraform commands
+
+> [!CAUTION]
+> * Config file should be stored in a version control system but the state file should be stored in a backend system like s3 or a remote server
+
+> [!WARNING]
+> * Never change terraform state file manually, instead use terraform commands
 
 ## WORKING WITH TERRAFORM
 * `terraform validate` to check syntax errors
