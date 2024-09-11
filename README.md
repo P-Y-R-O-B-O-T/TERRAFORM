@@ -125,6 +125,22 @@ BLOCK_TYPE "RESOURCE_TYPE" "RESOURCE_NAME" {
 > }
 > ```
 
+> [!TIP]
+> #### DEPENDENCY LOCK FILE (`terraform.lock.hcl`)
+> * It helps managing externally provided dependencies
+> * Ensures all providers are being used in the same version accross all the environments and operations 
+> * It provides:
+>     - Consistency
+>     - Reproducibility
+>     - Compatibility
+> * It contains:
+>     - Exact provider versions
+>     - Provider checksums
+>     - Information
+> * To update the state lock file when upgrading to new versions of providers, run `terraform init -upgrade`
+> * Always commit the state lock file
+
+
 ### CONFIGURATION DIRECTORY
 * Terraform considers any file with `.tf` config as terraform in the project directory
 * Resources can be defined by multiple files but all resources should be in the `main.tf` file
@@ -326,8 +342,11 @@ output "OUTPUT_NAME" {
 * Each resource in terraform has a id to identify the resources in the real world and it also helps in resolving resource dependencies
 * Terraform also helps in tracking metadata (helps in deleting resources)
 
+### REMOTE STATE
+* Statelocking to prevent the corruption of state file
+
 > [!IMPORTANT]
-> ### REMOTE STATE and STATE LOCKING (REMOTE BACKEND)
+> #### REMOTE STATE and STATE LOCKING (REMOTE BACKEND)
 > * **State Locking**: Terraform feature to avoid corruption of state file when two terraform workflows are running simultaneously
 > * **Remote State**: Project are worked upon as a team, everybody needs access to the state file while working on the infrastructure
 > * Remote state files provide :
@@ -342,6 +361,9 @@ output "OUTPUT_NAME" {
 >     - Consul
 >     - Artifactory
 >     - HCP
+
+> [!TIP]
+> #### REMOTE BACKEND with S3 and DYNAMODB
 > * Along with the `main.tf` also create one more file `terraform.tf` that contains remote backend configurations
 > * Configure `terraform.tf` as below
 > ```tcl
@@ -356,10 +378,23 @@ output "OUTPUT_NAME" {
 > ```
 > * Before using the remote backend, run `terraform init` to initialize it
 
+> [!IMPORTANT]
+> #### TAINT
+> * Sometimes terraform apply fails due to wrong path or command in provisioner sub block or attribute
+> * Tainted resources are entirely recreated
+> * Terraform marks those resources as tainted and then they are re created when next apply command is run
+> * There are situations when we want to recreate a reource forcefuly, we taint it using
+> ```bash
+> terraform taint RESOURCE_TYPE.RESOURCE_NAME
+> ```
+> * To untaint the resource
+> ```bash
+> terraform untaint RESOURCE_TYPE.RESOURCE_NAME
+> ```
 
 > [!TIP]
 > #### PERFORMANCE
-> * Performance because of getting state from local system instead of fetching from cloud provider through network (elemination of slow process)
+> * Performance goes down as number of resources increase because fetching from cloud provider through network (slow process)
 > * When we need a resource replacement we need it to be fast so we want terraform to refer to state file but not refresh it `terraform plan --refresh=False`
 
 * It also helps in collaboration in a team
@@ -377,10 +412,24 @@ output "OUTPUT_NAME" {
 | `terraform validate` | Check syntax errors |
 | `terraform fmt` | Format the file in required standard format |
 | `terraform show` | See current infrastructure as seen by terraform |
+| `terraform show -json` | See current infrastructure in json format |
 | `terraform providers` | See all installed providers |
+| `terraform output` | See all output resources |
+| `terraform output RESOURCE_TYPE.RESOURCE_NAME ...` | Print specific variables |
 | `terraform providers mirror /path/to/mirror/the/providers` | Mirror providers |
-| `terraform refresh` | Refresh terraform to real world infrastructure if any manual change made |
+| `terraform refresh` | Refresh/sync terraform to real world infrastructure if any manual change made |
 | `terraform graph` | Get dependency graph, we can put the o/p in graph visualiser |
+
+## STATE COMMANDS
+| COMMAND | EFFECT |
+| ------- | ------ |
+| `terraform state list` | List all the resources |
+| `terraform state show RESOURCE` | Print info of resource, `RESOURCE` taken by `list` command |
+| `terraform state mv RESOURCE_TYPE.RESOURCE_NAME RESOURCE_TYPE.NEW_RESOURCE_NAME` | Renames the resource |
+| `terraform state pull` | Pull remote state file from backend |
+| `terraform state rm RESOURCE_TYPE.RESOURCE_NAME` | Removing the resources from state file (does not delete resource), once removed from state file, one must remove the associated resource blocks from config file too |
+| `terraform state push PATH_OF_TERRAFORM_FILE` | Override remote state file with local state file, use with caution (very dangerous) |
+
 
 > [!IMPORTANT]
 > ### MUTABLE VS IMMUTABLE INFRASTRUCTURE
@@ -404,9 +453,10 @@ resource "RESOURCE_TYPE" "RESOURCE_NAME" {
         TAG1 = "VALUE1"
         TAG2 = "VALUE2"
     }
-
+    # ATTRIBUTES CAN BE `tags` `instance_type` etc
+    # OR WE CAN SET ignore_changes = all to avoid change due to any parameter
     lifecycle {
-        create_before_destroy = true
+        LIFECYCLE_RULE = VALUE
         ignore_changes = [
             PARAMETER1
             PARAMETER2
@@ -751,50 +801,15 @@ provider "aws" {
 }
 ```
 
-
-## REMOTE STATE
-* Statelocking to prevent the corruption of state file
-
-> [!TIP]
-> ### REMOTE BACKEND WITH S3 AND DYNAMODB
-> * S3 for storing the state file and dynamodb for locking the state
-> ```tcl
-> # terraform.tf
-> terraform {
->     backend "s3" { # TO USE S3 AS BACKEND
->         bucket = "BUCKET_NAME"
->         key = "PATH_TO_STATE_FILE_IN_S3_BUCKET"
->         region = "REGION"
->         dynamodb = "DYNAMODB_NAME" # THE TABLE MUST HAVE A PRIMARY KEY AS LockID
->     }
-> }
->
-> # main.tf
-> CREATE RESOURCES AS USUAL
-> resource "RESOURCE_TYPE" "RESOURCE_NAME" {
->     ...
-> }
-> ```
-
-## STATE COMMANDS
-| COMMAND | EFFECT |
-| ------- | ------ |
-| `terraform state list` | List all the resources |
-| `terraform state show RESOURCE` | Print info of resource, `RESOURCE` taken by `list` command |
-| `terraform state mv RESOURCE_TYPE.RESOURCE_NAME RESOURCE_TYPE.NEW_RESOURCE_NAME` | Renames the resource |
-| `terraform state pull` | To see the remote state file |
-| `terraform state rm RESOURCE_TYPE.RESOURCE_NAME` | Removes a resource, but remove it from the config file manually too |
-
-## TAINT
-* Sometimes terraform apply fails due to wrong path or command in provisioner sub block or attribute
-* Tainted resources are entirely recreated
-* Terraform marks those resources as tainted and then they are re created when next apply command is run
-* When required to make change to a resource we may recreate a resource by running terraform apply command but the better way is to taint the resource to upgrade or make required changes using `terraform taint RESOURCE_TYPE.RESOURCE_NAME`
-* To untain the resource run `terraform untaint RESOURCE_TYPE.RESOURCE_NAME`
-
-## DEBUG
-* Terraform have a lot of debug levels: `INFO`, `WARNING`, `ERROR`, `DEBUG` and `TRACE`
-* To use debugging use: `export TF_LOG=DEBUG_LEVEL`
+## LOGGING and DEBUG
+* To enable logging, run `export TF_LOG=LOG_LEVEL` before terraform commands
+* Store all the logs in files `export TF_LOG_PATH=PATH`
+* There are few `LOG_LEVEL` in terraform:
+    - `INFO`
+    - `WARNING`
+    - `ERROR`
+    - `DEBUG`
+    - `TRACE`
 
 ## MODULE
 * A configuration directory containing `.tf` files is a module in itself
@@ -933,7 +948,7 @@ variable "huh" {
 * `8 == '8'` gives true
 #### IF CONDITIONS
 * `condition ? true_val : false_val`
-```
+```tcl
 # main.tf
 resource "random_password" "pass_gen" {
     length = var.length < 8 ? 8 : var.length
@@ -952,6 +967,7 @@ $ > terraform apply --var=length=5
 ```
 
 ## WORKSPACES
+* Logical sections in terraform project
 * Allow to use configurration files within a directory to be reused multiple times for different purposes
 ```
 root_proj_dir
@@ -964,35 +980,27 @@ root_proj_dir
 | `terraform workspace list` | List workspaces |
 | `terraform workspace select WORKSPACE_NAME` | Select workspaces |
 
-> [!IMPORTANT]
+> [!TIP]
 > ### EXAMPLE
+> * Manage resource in multiple environments
+> * `main.tf`
 > ```tcl
-> # variables.tf
-> variable region {
->     default = "us-east-1"
+> resource "aws_instance" "RESOURCE_NAME" {
+>     ami = "AMI"
+>     instance_type = lookup(var.instance_type, terraform.workspace)
 > }
-> variable instance_type {
->     default = "t2.micro"
-> }
-> variable ami {
+> ```
+> * `variable.tf`
+> ```tcl
+> variable "instance_type" {
 >     type = map
 >     default = {
->         "production" = "ami-12324"
->         "testing" = "ami-45656"
+>         "development" = "t2.micro"
+>         "production" = "m5.large"
 >     }
 > }
->
-> # main.tf
-> resource "aws_instance" "huhu" {
->     ami = lookup(var.ami, terraform.workspace)
->     instance_type = var.instance_type
->     tags = {
->         name = terraform.workspace
->     }
-> }
->
-> $ > terraform apply
 > ```
+
 
 > [!TIP]
 > * Now here is a catch, we do not have any terraform.tfstate file in the main directory, now we have a new subdirectory structure where all the state files are stored named `terraform.tfstate.d`
@@ -1035,122 +1043,6 @@ resource "aws_instance" "INSTANCE_NAME" {
 ```
 
 
-#### DEPENDENCY LOCK FILE (`terraform.lock.hcl`)
-* It helps managing externally provided dependencies
-* Ensures all providers are being used in the same version accross all the environments and operations 
-* It provides:
-    - Consistency
-    - Reproducibility
-    - Compatibility
-* It contains:
-    - Exact provider versions
-    - Provider checksums
-    - Information
-* To update the state lock file when upgrading to new versions of providers, run `terraform init -upgrade`
-* Always commit the state lock file
-
-## COMMANDS
-| COMMAND | EFFECT |
-| ------- | ------ |
-| `terraform validate` | Validate the syntactical and logical errors in the file |
-| `terraform fmt` | Reformats the scripts |
-| `terraform show` | Show current infrastructure |
-| `terraform show -json` | See current infrastructure in json format |
-| `terraform providers` | See all the providers being used |
-| `terraform output` | See all output resources |
-| `terraform output RESOURCE_TYPE.RESOURCE_NAME ...` | Print specific variables |
-| `terraform refresh` | Sync terraform with real world infrastructure |
-| `terraform graph` | Generate a visual representation of dependencies in terraform execution plan, this output can be used with `graphwiz` |
-| `terraform state COMMAND RESOURCE_TYPE.RESOURCE_NAME` | Edit state file, where `COMMAND` can be `list`, `mv`, `pull`, `rm`, `show`, `push` |
-
-> [!IMPORTANT]
-> ### STATE SUBCOMMANDS
-> * `pull`: Pulling the state file from remote backend
-> * `mv`: Renaming the resources `terraform state mv RESOURCE_TYPE.RESOURCE_NAME_OLD RESOURCE_TYPE.RESOURCE_NAME_NEW`
-> * `rm`: Removing the resources from state file (does not delete resource), once removed from state file, one must remove the associated resource blocks from config file too
-> * `push`: Override remote state file with local state file, use with caution (very dangerous) `terraform state push PATH_OF_TERRAFORM_FILE`
-
-## LIFECYCLE RULES
-* create_before_destroy
-* prevent_destroy - prevents resource from being destroyed such as data bases
-* ignore_changes - prevents resource from updating
-```tcl
-resoruce "RESOURCE_TYPE" "RESOURCE_NAME" {
-    ...
-    lifecycle {
-        # ATTRIBUTES CAN BE `tags` `instance_type` etc
-        # OR WE CAN SET ignore_changes = all to avoid change due to any parameter
-        ignore_changes = [
-          ATTRIBUTE_1
-          ATTRIBUTE_2
-          ...
-          ]
-    }
-}
-```
-
-```tcl
-resource "RESOURCE_TYPE" "RESOURCE_NAME" {
-    ...
-    lifecycle {
-        LIFECYCLE_RULE = VALUE
-    }
-}
-```
-
-### TAINTING
-* When terraform is unable to create the resource, terraform taints it
-* Tainting means marking to recreate
-* There are situations when we want to recreate a reource forcefuly, we taint it using
-```bash
-terraform taint RESOURCE_TYPE.RESOURCE_NAME
-```
-* To untaint the resource
-```bash
-terraform untaint RESOURCE_TYPE.RESOURCE_NAME
-```
-
-## LOGGING
-* To enable logging, run `export TF_LOG=LOG_LEVEL` before terraform commands
-* Store all the logs in files `export TF_LOG_PATH=PATH`
-* There are few `LOG_LEVEL` in terraform:
-    - `INFO`
-    - `WARNING`
-    - `ERROR`
-    - `DEBUG`
-    - `TRACE`
-
-## TERRAFORM WORKSPACES
-* Logical sections in terraform project
-
-| COMMAND | EFFECT |
-| ------- | ------ |
-| `terraform workspace list` | List workspaces |
-| `terraform workspace new WORKSPACE_NAME` | Create a new workspace |
-| `terraform workspace select WORKSPACE_NAME` | Select a workspace |
-
-* State files for different workspaces are found in `terraform.tfstate.d/`
-
-> [!TIP]
-> * Manage resources of different environments of infrastructure
-> * EXAMPLE
->     - `main.tf`
-> ```tcl
-> resource "aws_instance" "RESOURCE_NAME" {
->     ami = "AMI"
->     instance_type = lookup(var.instance_type, terraform.workspace)
-> }
-> ```
->     - `variable.tf`
-> ```tcl
-> variable "instance_type" {
->     type = map
->     default = {
->         "development" = "t2.micro"
->         "production" = "m5.large"
->     }
-> }
-> ```
 
 ## META ARGUMENTS
 ### COUNT
