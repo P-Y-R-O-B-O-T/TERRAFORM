@@ -1,5 +1,5 @@
 # TERRAFORM
-* Infrastructure as code is the process of managing and provisioning computer data center resources through machine-readable definition files, rather than physical hardware configuration or interactive configuration tools.
+* Infrastructure as code is about managing and provisioning computer data center resources through machine-readable definition files, rather than physical hardware configuration or interactive configuration tools.
 
 ## PROBLEMS WITH TRADITIONAL IT INFRASTRUCTURE DEPLOYMENTS
 * Slow deployments
@@ -30,14 +30,15 @@
 * Resource lifecycle managenent (provisioning, configuring, decommissioning)
 * Terraform state is the blueprint of what is deployed by terraform, it can read attributes of existing infrastructure components by configuring data sources
 * Terraform can import other resources inside it if any were created manually
+* A block contains information about the infrastructure platform and resources within the platform that we want to create
 
 ## HCL BASICS
 ```tcl
+# SYNTAX
 BLOCK_TYPE "RESOURCE_TYPE" "RESOURCE_NAME" {
     PARAMETERS
 }
 ```
-* A block contains information about the infrastructure platform and resources within the platform that we want to create
 
 > [!NOTE]
 > ### CREATING A LOCAL FILE
